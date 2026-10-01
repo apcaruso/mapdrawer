@@ -104,7 +104,7 @@ export const DRAWING_TOOLS: Tool[] = [
     "lasso"
   ),
   terrainTool(
-    { id: "raise", name: "Raise", icon: icon("mountain"), key: "KeyH", hint: "drag to build hills and mountains" },
+    { id: "raise", name: "Raise", icon: icon("level-up"), key: "KeyH", hint: "drag to build hills" },
     "raise"
   ),
   terrainTool(
@@ -114,6 +114,16 @@ export const DRAWING_TOOLS: Tool[] = [
   terrainTool(
     { id: "smooth", name: "Smooth", icon: icon("smooth"), key: "KeyF", hint: "drag to soften slopes" },
     "smooth"
+  ),
+  terrainTool(
+    {
+      id: "range",
+      name: "Mountain range",
+      icon: icon("mountain"),
+      key: "KeyM",
+      hint: "draw the ridge line; strength sets the height, width how far the range spreads"
+    },
+    "range"
   ),
   paintTool(
     {
@@ -158,16 +168,31 @@ export const DRAWING_TOOLS: Tool[] = [
   ),
   dialogTool(
     {
-      id: "river",
-      name: "River",
+      id: "reliefIcons",
+      name: "Relief icons",
       group: "nature",
-      icon: svgIcon('<path d="M4 4c4 2 0 6 4 8s6-2 8 2-2 6 4 6"/>'),
-      key: "KeyW",
-      hint: "click cells from the source to the mouth, then confirm in the dialog"
+      icon: svgIcon('<path d="M2 19l5-8 4 6 3-4 6 6z"/>'),
+      key: "KeyI",
+      hint: "drag to place the icon picked in the dialog; switch the dialog to remove mode to erase"
     },
-    "riverCreator",
-    () => Controllers.RiverCreator.open()
+    "reliefEditor",
+    async () => {
+      await Controllers.ReliefEditor.open(undefined as unknown as SVGElement); // no icon picked: start with the brush
+      findEl("reliefBulkAdd")?.click();
+    }
   ),
+  {
+    id: "river",
+    name: "River",
+    group: "nature",
+    icon: svgIcon('<path d="M4 4c4 2 0 6 4 8s6-2 8 2-2 6 4 6"/>'),
+    key: "KeyW",
+    hint: "drag from the source to the mouth; ending in another river makes a tributary",
+    activate: async end => {
+      if (!(await Controllers.RiverTool.start())) end();
+    },
+    deactivate: () => Controllers.RiverTool.stop()
+  },
   placementTool(
     {
       id: "burg",

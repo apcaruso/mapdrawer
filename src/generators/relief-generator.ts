@@ -17,7 +17,23 @@ export interface ReliefIcon {
 class ReliefModule {
   generate(): ReliefIcon[] {
     TIME && console.time("generateRelief");
+    const relief = this.place(pack.cells.i);
+    sortByBottomEdge(relief);
+    pack.relief = relief;
+    TIME && console.timeEnd("generateRelief");
+    return relief;
+  }
 
+  /** new icons for the given cells only; the icons elsewhere, generated or placed by hand, stay */
+  regenerateCells(cellIds: readonly number[]): void {
+    const edited = new Set(cellIds);
+    const kept = (pack.relief || []).filter(({ x, y, s }) => !edited.has(Pack.findCell(x + s / 2, y + s / 2)!));
+    const relief = [...kept, ...this.place(cellIds)];
+    sortByBottomEdge(relief);
+    pack.relief = relief;
+  }
+
+  private place(cellIds: ArrayLike<number> & Iterable<number>): ReliefIcon[] {
     const cells = pack.cells;
     const { size, density } = styles.relief.options;
     const set = styles.relief.options.set as ReliefSet;
@@ -40,7 +56,7 @@ class ReliefModule {
     };
 
     const relief: ReliefIcon[] = [];
-    for (const i of cells.i) {
+    for (const i of cellIds) {
       const height = cells.h[i];
       if (height < 20) continue; // no icons on water
       if (cells.r[i]) continue; // no icons on rivers
@@ -79,11 +95,6 @@ class ReliefModule {
       }
     }
 
-    // sort icons by the bottom edge, so the closer ones are drawn on top
-    relief.sort((a, b) => a.y + a.s - (b.y + b.s));
-    pack.relief = relief;
-
-    TIME && console.timeEnd("generateRelief");
     return relief;
   }
 
@@ -115,6 +126,9 @@ class ReliefModule {
     return [getReliefIconId(icons.type, picked, set), scale];
   }
 }
+
+// the closer icons, lower on the map, are drawn on top
+const sortByBottomEdge = (relief: ReliefIcon[]) => relief.sort((a, b) => a.y + a.s - (b.y + b.s));
 
 export const getReliefIconId = (type: string, variant: number, set: ReliefSet): string =>
   `relief-${type}-${variant}${RELIEF_SETS[set].suffix}`;

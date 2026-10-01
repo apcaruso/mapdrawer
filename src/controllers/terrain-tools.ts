@@ -1,16 +1,16 @@
-// Terrain tools: brushes and a lasso that raise land, sink it into the sea and shape its relief. A stroke is
-// previewed while drawn and becomes one undoable step when it ends
-import { type D3DragEvent, drag, interpolateRgbBasis, polygonContains, select } from "d3";
+// Terrain tools: brushes, a lasso and a mountain range line that raise land, sink it into the sea and shape its
+// relief. A stroke is previewed while drawn and becomes one undoable step when it ends
+import { interpolateRgbBasis, polygonContains } from "d3";
 import { fitMapToScreen } from "@/components/canvas";
 import { type LayerId, Layers } from "@/components/layers";
 import { registerMap } from "@/components/lifecycle";
 import { hideLoading, showLoading } from "@/components/loading";
 import { MapBrush } from "@/components/map-brush";
+import { MapFreehand } from "@/components/map-freehand";
 import { hideToolOptions, showToolOptions } from "@/components/tools/tool-options";
 import { clearMainTip, tip } from "@/components/tooltips";
 import { type HistoryDomain, UndoHistory } from "@/components/undo-history";
 import { undraw } from "@/components/undraw";
-import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { POINTS_BY_DENSITY } from "@/data/graph-density";
 import { Resample } from "@/generators/resample";
 import { Terrain, type TerrainEdit } from "@/generators/terrain";
@@ -23,15 +23,24 @@ import {
 import type { Point } from "@/types/global";
 import { ensureEl, minmax } from "@/utils";
 
-export type TerrainMode = "land" | "sea" | "raise" | "lower" | "smooth" | "lasso";
+export type TerrainMode = "land" | "sea" | "raise" | "lower" | "smooth" | "lasso" | "range";
 
-const MODES: Record<TerrainMode, { title: string; strength?: boolean; roughness?: boolean; relief?: boolean }> = {
-  land: { title: "Land brush", roughness: true },
-  sea: { title: "Sea brush", roughness: true },
-  raise: { title: "Raise", strength: true, relief: true },
-  lower: { title: "Lower", strength: true, relief: true },
-  smooth: { title: "Smooth", strength: true, relief: true },
-  lasso: { title: "Lasso" }
+interface ModeSpec {
+  title: string;
+  stroke: "brush" | "freehand"; // stamps along the pointer, or one shape when the pointer is released
+  strength?: boolean;
+  roughness?: boolean;
+  relief?: boolean; // shows the heightmap layer, where the change is seen
+}
+
+const MODES: Record<TerrainMode, ModeSpec> = {
+  land: { title: "Land brush", stroke: "brush", roughness: true },
+  sea: { title: "Sea brush", stroke: "brush", roughness: true },
+  raise: { title: "Raise", stroke: "brush", strength: true, relief: true },
+  lower: { title: "Lower", stroke: "brush", strength: true, relief: true },
+  smooth: { title: "Smooth", stroke: "brush", strength: true, relief: true },
+  lasso: { title: "Lasso", stroke: "freehand" },
+  range: { title: "Mountain range", stroke: "freehand", strength: true, relief: true }
 };
 
 const LAND = Terrain.LAND;
@@ -47,10 +56,12 @@ const DOMAINS: HistoryDomain[] = [
   "cells.religion",
   "cells.pop",
   "cells.s",
+  "cells.r",
   "burgs",
-  "routes"
+  "routes",
+  "rivers"
 ];
-const RELIEF_LAYERS: LayerId[] = ["heightmap", "biomes"];
+const RELIEF_LAYERS: LayerId[] = ["heightmap", "biomes", "relief"];
 const COAST_LAYERS: LayerId[] = [
   "ocean",
   "landmass",
@@ -61,7 +72,8 @@ const COAST_LAYERS: LayerId[] = [
   "provinces",
   "borders",
   "cultures",
-  "religions"
+  "religions",
+  "rivers"
 ];
 
 const settings = { radius: 30, strength: 5, roughness: 40, lassoSea: false };
@@ -70,7 +82,7 @@ interface Session {
   mode: TerrainMode;
   pending: Map<number, number>; // cell -> height drawn by the current stroke
   brush?: MapBrush;
-  lasso?: AbortController;
+  freehand?: MapFreehand;
 }
 
 let session: Session | null = null;
@@ -88,7 +100,18 @@ async function start(mode: TerrainMode): Promise<boolean> {
   if (MODES[mode].relief) Layers.show("heightmap");
   openPaintOverlay();
   renderOptions(mode); // a brush is wired to its size control there
-  if (mode === "lasso") attachLasso();
+
+  if (MODES[mode].stroke === "freehand") {
+    session.freehand =
+      mode === "lasso"
+        ? new MapFreehand({
+            closed: true,
+            fill: "#ffffff33",
+            onEnd: (points, event) => fillPolygon(points, settings.lassoSea !== Boolean(event?.altKey))
+          })
+        : new MapFreehand({ stroke: "#7a4a2a", onEnd: raiseRange });
+    session.freehand.attach();
+  }
   return true;
 }
 
@@ -97,11 +120,7 @@ function stop(): void {
   if (!session) return;
   commit();
   session.brush?.detach();
-  if (session.lasso) {
-    session.lasso.abort();
-    select("#terrainLasso").remove();
-    applyDefaultViewboxEvents();
-  }
+  session.freehand?.detach();
   removePaintOverlay();
   hideToolOptions();
   clearMainTip();
@@ -109,10 +128,13 @@ function stop(): void {
 }
 
 function renderOptions(mode: TerrainMode): void {
-  const { strength, roughness } = MODES[mode];
-  const brush = mode === "lasso" ? null : createBrush(mode);
+  const { strength, roughness, stroke } = MODES[mode];
+  const brush = stroke === "brush" ? createBrush(mode) : null;
   const controls = [
     brush?.markup ?? "",
+    mode === "range"
+      ? `<div data-tip="How wide the range spreads from its ridge"><slider-input id="terrainRangeWidth" min="5" max="200" value="${settings.radius}" data-brush-size>Width:</slider-input></div>`
+      : "",
     strength
       ? `<div data-tip="How much each pass changes the ground"><slider-input id="terrainStrength" min="1" max="10" value="${settings.strength}">Strength:</slider-input></div>`
       : "",
@@ -132,6 +154,7 @@ function renderOptions(mode: TerrainMode): void {
     const target = event.target as HTMLElement;
     if (target.id === "terrainStrength") settings.strength = Number((target as HTMLInputElement).value);
     if (target.id === "terrainRoughness") settings.roughness = Number((target as HTMLInputElement).value);
+    if (target.id === "terrainRangeWidth") settings.radius = Number((target as HTMLInputElement).value);
   });
   bar.addEventListener("click", event => {
     const id = (event.target as HTMLElement).id;
@@ -227,9 +250,14 @@ function commit(): void {
   pending.clear();
 
   const label = mode === "lasso" ? `Lasso ${settings.lassoSea ? "sea" : "land"}` : MODES[mode].title;
+  const changed: number[] = []; // filled by the step, read back by its undo and redo
   const edit = UndoHistory.record(
-    { label, domains: DOMAINS, layers: COAST_LAYERS, after: Terrain.resync },
-    (): TerrainEdit => Terrain.setHeights(heights)
+    { label, domains: DOMAINS, layers: COAST_LAYERS, after: () => Terrain.resync(changed) },
+    (): TerrainEdit => {
+      const result = Terrain.setHeights(heights);
+      changed.push(...result.changed);
+      return result;
+    }
   );
 
   removePaintOverlayCells(cells);
@@ -242,49 +270,6 @@ function commit(): void {
       4000
     );
   }
-}
-
-/** draw a closed shape on the map and fill it with land or sea */
-function attachLasso(): void {
-  const controller = new AbortController();
-  if (session) session.lasso = controller;
-  let space = false;
-  const trackSpace = (event: KeyboardEvent) => {
-    if (event.code === "Space") space = event.type === "keydown";
-  };
-  document.addEventListener("keydown", trackSpace, { signal: controller.signal });
-  document.addEventListener("keyup", trackSpace, { signal: controller.signal });
-
-  const viewbox = ensureEl<SVGGElement>("viewbox");
-  select<SVGGElement, unknown>("#viewbox")
-    .style("cursor", "crosshair")
-    .on("click", null)
-    .call(
-      drag<SVGGElement, unknown>()
-        .container(() => viewbox)
-        .filter(event => !space && !event.button)
-        .on("start", (event: D3DragEvent<SVGGElement, unknown, unknown>) => {
-          const points: Point[] = [[event.x, event.y]];
-          const path = select("#debug")
-            .append("path")
-            .attr("id", "terrainLasso")
-            .attr("fill", "#ffffff33")
-            .attr("stroke", "#222")
-            .attr("stroke-dasharray", "4 3")
-            .attr("vector-effect", "non-scaling-stroke");
-
-          event
-            .on("drag", (dragEvent: D3DragEvent<SVGGElement, unknown, unknown>) => {
-              points.push([dragEvent.x, dragEvent.y]);
-              path.attr("d", `M${points.join("L")}Z`);
-            })
-            .on("end", (endEvent: D3DragEvent<SVGGElement, unknown, unknown>) => {
-              path.remove();
-              const alt = (endEvent.sourceEvent as MouseEvent | undefined)?.altKey ?? false;
-              fillPolygon(points, settings.lassoSea !== alt);
-            });
-        })
-    );
 }
 
 function fillPolygon(polygon: Point[], sea: boolean): void {
@@ -305,6 +290,47 @@ function fillPolygon(polygon: Point[], sea: boolean): void {
   settings.lassoSea = sea; // the step is named after what was filled
   commit();
   settings.lassoSea = previousSea;
+}
+
+/** a ridge along the drawn line: highest at the line, falling off over the width, craggy and tapered at both ends */
+function raiseRange(path: Point[]): void {
+  if (!session || path.length < 2) return;
+  const { cells } = pack;
+  const width = settings.radius;
+  const peak = settings.strength * 6;
+
+  const candidates = new Set<number>();
+  for (const [x, y] of path) for (const cell of Pack.findAll(x, y, width)) candidates.add(cell);
+
+  const length = path.slice(1).reduce((sum, [x, y], i) => sum + Math.hypot(x - path[i][0], y - path[i][1]), 0);
+  for (const cell of candidates) {
+    const [x, y] = cells.p[cell];
+    const { distance, along } = nearestOnPath(path, x, y);
+    if (distance > width) continue;
+    const position = length ? along / length : 0.5;
+    const taper = Math.min(1, position * 4, (1 - position) * 4);
+    const crag = 0.55 + 0.9 * edgeNoise(x, y, width * 0.6);
+    const lift = peak * (1 - distance / width) ** 1.6 * crag * taper;
+    if (lift < 0.5) continue;
+    session.pending.set(cell, minmax(cells.h[cell] + lift, 0, 100));
+  }
+  commit();
+}
+
+/** distance from a point to a polyline, and how far along the polyline its nearest point lies */
+function nearestOnPath(path: Point[], x: number, y: number): { distance: number; along: number } {
+  let best = { distance: Infinity, along: 0 };
+  let walked = 0;
+  for (let i = 1; i < path.length; i++) {
+    const [x0, y0] = path[i - 1];
+    const [x1, y1] = path[i];
+    const segment = Math.hypot(x1 - x0, y1 - y0);
+    const t = segment ? minmax(((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) / segment ** 2, 0, 1) : 0;
+    const distance = Math.hypot(x - (x0 + (x1 - x0) * t), y - (y0 + (y1 - y0) * t));
+    if (distance < best.distance) best = { distance, along: walked + segment * t };
+    walked += segment;
+  }
+  return best;
 }
 
 /** fresh land is lowland with a gentle, position-bound variation, so neighbouring strokes match */

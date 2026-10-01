@@ -19,7 +19,8 @@
 | 1 — Mondo vuoto | ✅ | Vedi sotto |
 | 2 — ToolManager, palette, storia globale | ✅ | Vedi sotto. Barra opzioni contestuale rinviata allo Step 3, ispettore allo Step 6 |
 | 3 — Terreno live | ✅ | Vedi sotto |
-| 4–9 | da fare | |
+| 4 — Mappa fisica | ✅ | Vedi sotto |
+| 5–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -133,10 +134,50 @@ Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, 
 | --- | --- |
 | Conversione di una mappa casuale da 10k | ~1,4 s |
 
-**Limiti noti dello Step 3**
-- I fiumi non seguono il terreno: un fiume su terra sommersa resta disegnato. Fa parte dello Step 4.
-- Le icone di rilievo non si rigenerano: Step 4.
-- Il crinale con Alza si costruisce a passate; manca uno strumento "catena montuosa" lungo una linea.
+I limiti dello Step 3 (fiumi che non seguono il terreno, rilievo fermo, nessuna catena montuosa) sono risolti nello
+Step 4.
+
+### Cosa fa lo Step 4
+
+- **Fiume (W)**: si trascina dalla sorgente alla foce.
+  - **`src/generators/drawn-rivers.ts` (`DrawnRivers`)** trasforma il tratto in una catena di celle adiacenti. Ogni cella
+    è ancorata al passaggio del tratto, quindi il fiume segue la mano.
+  - Il fiume parte sulla terra, si ferma alla prima cella d'acqua (la foce) o al primo fiume incontrato (diventa
+    affluente) e taglia i cappi.
+  - Un tratto rilasciato fino a 3 celle prima di un fiume o della costa viene **agganciato** e arriva fin lì.
+  - La portata cresce verso valle, quindi il fiume si allarga. La larghezza è regolabile dalla barra opzioni.
+  - Gli ancoraggi diventano i punti di controllo dell'editor dei fiumi già esistente.
+- **Fiumi che seguono il terreno**: `DrawnRivers.trimDrowned()` gira a ogni modifica della costa.
+  - Un fiume finisce alla prima cella sommersa e parte dalla prima cella di terra, se la sorgente è affondata.
+  - Se gli restano meno di 2 celle di terra viene rimosso.
+  - Una modifica lontana non lo tocca.
+  - Fiumi e `cells.r` sono nei domini della storia, quindi Annulla li rimette com'erano.
+- **Catena montuosa (M)**: si disegna la linea del crinale.
+  - Il rilievo è massimo sulla linea, decresce lungo la larghezza, ha profilo frastagliato e si assottiglia alle
+    estremità.
+  - Forza = altezza, larghezza dalla barra opzioni. Sopra il mare crea un arco di isole.
+- **Rilievo**: `Relief.regenerateCells(cells)` rigenera le icone **solo nelle celle modificate** dal terreno o
+  attraversate da un nuovo fiume. Altrove le icone, anche quelle messe a mano, restano.
+- **Icone di rilievo (I)**: apre l'editor del rilievo direttamente nel pennello di piazzamento.
+- **`src/components/map-freehand.ts`**: il tratto a mano libera condiviso da lazo, catena montuosa e fiume, con
+  Space+trascina per spostare la mappa.
+- Icone della palette: Alza → freccia su, Catena montuosa → montagna.
+- **Test**: `drawn-rivers.test.ts` (9 casi: tracciato, cappi, sorgente in mare, affluenti, aggancio, accorciamento,
+  rimozione).
+
+**Prova nel browser** su mappa vuota: continente, catena montuosa fino ad altezza 98, fiume dalle montagne al mare,
+affluente agganciato. Risultati:
+- 7600 icone di rilievo generate, nessuna sopra un fiume;
+- una modifica lontana lascia i fiumi intatti;
+- una baia scavata attraverso il fiume lo accorcia da 60 a 18 celle, e Annulla lo riporta a 60;
+- l'editor dei fiumi si apre con i 60 punti di controllo.
+
+Tempi di commit: catena montuosa 65 ms, fiume 15 ms.
+
+**Limiti noti dello Step 4**
+- Le icone piazzate a mano con l'editor del rilievo non entrano nella storia.
+- I biomi "automatici da clima" su un'area sono rinviati agli assistenti (Step 8); i biomi si possono già dipingere.
+- I ghiacci restano nell'editor esistente, senza uno strumento nella palette.
 
 ### Misure dopo lo Step 1
 

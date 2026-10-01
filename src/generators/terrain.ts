@@ -1,5 +1,6 @@
 // Live terrain edits on the stable graph: heights change in place and what derives from them follows
 import Alea from "alea";
+import { DrawnRivers } from "@/generators/drawn-rivers";
 import type { TypedArray } from "@/types/PackedGraph";
 import { minmax } from "@/utils";
 
@@ -9,6 +10,7 @@ export interface TerrainEdit {
   changed: number[]; // cells whose height changed
   coastChanged: boolean; // some cell crossed sea level
   anchored: number; // cells kept above water because something stands on them
+  riversChanged: boolean; // a river was shortened or removed because its land sank
 }
 
 /** land that must stay land: burgs, and the centers states, provinces, cultures and religions grow from */
@@ -27,7 +29,7 @@ function getAnchoredCells(): Set<number> {
 function setHeights(heights: ReadonlyMap<number, number>): TerrainEdit {
   const { cells } = pack;
   const anchoredCells = getAnchoredCells();
-  const edit: TerrainEdit = { changed: [], coastChanged: false, anchored: 0 };
+  const edit: TerrainEdit = { changed: [], coastChanged: false, anchored: 0, riversChanged: false };
 
   for (const [cell, value] of heights) {
     let height = minmax(Math.round(value), 0, 100);
@@ -47,18 +49,31 @@ function setHeights(heights: ReadonlyMap<number, number>): TerrainEdit {
   if (edit.coastChanged) remarkup();
   Temperature.generate();
   Precipitation.generate();
-  if (edit.coastChanged) clearDrownedCells(edit.changed);
+  if (edit.coastChanged) {
+    clearDrownedCells(edit.changed);
+    edit.riversChanged = DrawnRivers.trimDrowned();
+  }
   defineBiomes(edit.changed);
+  updateRelief(edit.changed);
   return edit;
 }
 
-/** after the heights were put back by undo: the grid copy, features and climate follow; cell data was restored with them */
-function resync(): void {
+/**
+ * After undo put heights and cell data back: the grid copy, features and climate follow, and the relief icons of
+ * the cells the step had changed
+ */
+function resync(changed: readonly number[] = []): void {
   const { cells } = pack;
   for (const cell of cells.i) grid.cells.h[cells.g[cell]] = cells.h[cell];
   remarkup();
   Temperature.generate();
   Precipitation.generate();
+  updateRelief(changed);
+}
+
+/** relief icons follow the edited cells; a map whose relief was never generated gets it when the layer is drawn */
+function updateRelief(changed: readonly number[]): void {
+  if (pack.relief?.length && changed.length) Relief.regenerateCells(changed);
 }
 
 /** rebuild islands, lakes and oceans, keeping the names and notes of the ones still there */
