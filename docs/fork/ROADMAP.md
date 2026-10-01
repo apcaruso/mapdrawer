@@ -22,7 +22,8 @@
 | 4 — Mappa fisica | ✅ | Vedi sotto |
 | 5 — Mappa politica | ✅ | Vedi sotto |
 | 6 — Città, strade, etichette, marker | ✅ | Vedi sotto |
-| 7–9 | da fare | |
+| 7 — Fluidità | ✅ | Vedi sotto |
+| 8–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -260,6 +261,59 @@ Del tempo JavaScript che resta, circa 16 ms sono la copia delle città per Annul
   popolazione spetta agli assistenti (Step 8).
 - Le etichette degli stati si spostano ancora dal loro editor.
 - I nomi dei marker non si scrivono inline.
+
+### Cosa fa lo Step 7
+
+**Metodo.** Le misure vanno fatte con rasterizzazione GPU: `node scripts/perf-probe.mjs --gpu`, con Chrome for Testing in
+`CHROMIUM_PATH`.
+- La rasterizzazione software di Chromium headless gonfia i costi di disegno di molte volte e porta a conclusioni
+  sbagliate.
+- La fluidità si misura in **ms per aggiornamento della vista** (durata del gesto / passi) più i task lunghi. Gli fps
+  ingannano, perché una pagina occupata mostra molti frame in cui non si è mosso nulla.
+
+**Risultato di partenza (con GPU).**
+- Una mappa con i layer di default si muove già a 60 fps.
+- Lo scatto viene da due layer specifici, trovati spegnendone uno alla volta:
+  - **Rilievo**: le ~7600 icone erano `<use>` di `<symbol>`, ognuna con la propria trasformazione e il proprio
+    ritaglio. A **ogni** aggiornamento della pagina, anche un suggerimento al passaggio del mouse, Chrome doveva
+    riorganizzarle tutte in livelli (*Layerize*): 180 ms per volta.
+  - **Coordinate**: a ogni frame di spostamento il reticolo veniva ricalcolato per l'intera mappa e ricreato da zero
+    (percorso e circa 190 etichette).
+
+**Correzioni.**
+- `draw-relief-icons.ts`: sullo schermo le icone visibili sono **un'unica immagine SVG**, nitida perché vettoriale.
+  - Con l'editor del rilievo aperto (`setReliefEditing`) e nelle esportazioni (`renderTo`) restano elementi singoli.
+  - La nuova immagine sostituisce la vecchia solo dopo il caricamento, quindi niente sfarfallii.
+- `draw-coordinates.ts`: il reticolo si ricostruisce solo quando cambiano zoom, mappa o stile. Durante lo spostamento
+  si muovono solo le due righe di etichette, con due trasformazioni.
+- `scripts/perf-probe.mjs`: opzione `--gpu` e misura del movimento della mappa.
+- Test: caso nuovo in `draw-coordinates.dom.test.ts`; quel file ora importa il modello delle opzioni e passa anche da
+  solo.
+
+**Misure** (ms per aggiornamento, GPU, mappa da 10k celle)
+
+| Scenario | Prima | Dopo |
+| --- | --- | --- |
+| Mouse o spostamento a vista intera, con rilievo | 199 ms (187 task lunghi) | **17 ms (0)** |
+| Spostamento a vista intera, 18 layer accesi | 57 ms | **17 ms** |
+| Spostamento da zoomati, con coordinate | 80 ms (20 task lunghi) | **59 ms (0)** |
+| Layer di default, tutti i gesti | 17–67 ms | invariato (già fluido) |
+
+**Provato e scartato.**
+- *Trasformazione CSS composta durante i gesti*: è un grande guadagno solo con rasterizzazione software. Con la GPU
+  lo zoom diventa più lento (62 contro 23 ms), perché Chrome ridisegna comunque il layer quando la scala cambia.
+- *Nascondere il rilievo durante i movimenti* (visibility o display): il costo non era il disegno durante il gesto
+  ma la riorganizzazione dei livelli a ogni aggiornamento, risolta con l'immagine unica.
+- *Rimandare i ridisegni a una pausa del gesto*: con frame lenti il timer scattava a metà gesto e innescava un circolo
+  vizioso.
+
+**Limiti noti dello Step 7**
+- Su mappe pesanti (texture, heightmap e biomi con maschere, emblemi) lo spostamento da zoomati resta limitato dalla
+  GPU, intorno ai 60 ms per aggiornamento. Il preset Performance "Speed" aiuta lo zoom indietro (102 → 67 ms).
+- Un tratto di terreno su mappe da 50k celle costa ancora 50–125 ms. Servirebbe una marcatura incrementale delle
+  feature, al posto di quella completa a ogni modifica della costa.
+- I test DOM `draw-texture` e `label-groups` falliscono anche sul master originale in questo ambiente (manca il globale
+  `options`): non sono stati toccati.
 
 ### Misure dopo lo Step 1
 

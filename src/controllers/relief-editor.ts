@@ -5,7 +5,7 @@ import { clearMainTip, showMainTip, tip } from "@/components/tooltips";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { RELIEF_ICONS, RELIEF_SETS } from "@/data/relief-icons";
 import { getReliefIconId, type ReliefIcon } from "@/generators/relief-generator";
-import { getSceneReliefIcon, redrawRelief } from "@/renderers/draw-relief-icons";
+import { getSceneReliefIcon, redrawRelief, setReliefEditing } from "@/renderers/draw-relief-icons";
 import { moveCircle, removeCircle } from "@/renderers/overlays/brush-circle";
 import type { ReliefSet } from "@/types/relief";
 import { capitalize, ensureEl, findAllInQuadtree, getPointer, rn } from "../utils";
@@ -46,6 +46,7 @@ function open(element: SVGElement): void {
   if (customization) return;
   closeDialogs(".stable");
   Layers.show("relief");
+  setReliefEditing(true); // the icons become elements the editor can pick and drag
 
   selectedIcon = getIconData(element);
   select<SVGGElement, unknown>("#terrain")
@@ -483,6 +484,7 @@ function closeReliefEditor(): void {
   clearMainTip();
   $("#reliefEditor").dialog("destroy");
   ensureEl("reliefEditor").remove();
+  setReliefEditing(false);
 }
 
 export const ReliefEditor = { open };

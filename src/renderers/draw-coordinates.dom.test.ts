@@ -1,6 +1,7 @@
 // Browser-mode test (vitest.browser.config.ts): the coordinates renderer takes its base label
 // size from the store, not the retired data-size attribute.
 import { beforeEach, expect, test } from "vitest";
+import "@/components/options-model"; // declares the options global the renderer reads
 import "@/generators/styles";
 import { setViewportTransform } from "@/components/viewport";
 import { drawCoordinates } from "./draw-coordinates";
@@ -22,4 +23,17 @@ test("drawCoordinates sizes labels from the store, ignoring data-size", () => {
 
   const rendered = Number(document.getElementById("coordinates")!.getAttribute("font-size"));
   expect(rendered).toBeCloseTo(20 / 4 ** 0.8, 2);
+});
+
+test("a pan at the same zoom moves the label rows and keeps the grid", () => {
+  drawCoordinates();
+  const grid = document.querySelector("#coordinateGrid path");
+  const latitudeRow = document.getElementById("latitudeLabels")!.getAttribute("transform");
+
+  setViewportTransform(4, -200, -100);
+  document.getElementById("viewbox")!.setAttribute("transform", "translate(-200 -100) scale(4)");
+  drawCoordinates();
+
+  expect(document.querySelector("#coordinateGrid path")).toBe(grid); // not rebuilt
+  expect(document.getElementById("latitudeLabels")!.getAttribute("transform")).not.toBe(latitudeRow);
 });
