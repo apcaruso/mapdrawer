@@ -35,7 +35,7 @@ function handleKeyup(event: KeyboardEvent): void {
 
   if (code === "Space") openOmnibar(event);
   else if (code === "F1") showInfo();
-  else if (code === "F2") regeneratePrompt();
+  else if (code === "F2") Controllers.NewMapDialog.open();
   else if (code === "F6") Services.Save.toStorage();
   else if (code === "F9") Services.Load.quickLoad();
   else if (code === "Tab") toggleOptions(event);
@@ -67,11 +67,8 @@ function handleKeyup(event: KeyboardEvent): void {
   else if ((shift || altShift) && code === "KeyU") Controllers.RoutesOverview.open();
   else if ((shift || altShift) && code === "KeyF") Controllers.FeaturesOverview.open();
   else if ((shift || altShift) && code === "KeyV") Controllers.RiversOverview.open();
-  else if ((shift || altShift) && code === "KeyM") Controllers.MilitaryOverview.open();
   else if ((shift || altShift) && code === "KeyK") Controllers.MarkersOverview.open();
   else if ((shift || altShift) && code === "KeyE") Controllers.CellInfo.open();
-  else if ((shift || altShift) && code === "KeyG") Controllers.GoodsEditor.open();
-  else if ((shift || altShift) && code === "KeyJ") Controllers.JourneysOverview.open();
   else if ((shift || altShift) && code === "KeyW") Controllers.WrapTool.open();
   else if ((shift || altShift) && code === "Equal" && !brush) Controllers.MeasurersEditor.open();
   else if (key === "!") Controllers.BurgCreator.toggle();

@@ -17,6 +17,7 @@ class PackModule {
     const { cells: gridCells, points, features, spacing, boundary } = grid;
     const newCells: { p: Point[]; g: number[]; h: number[] } = { p: [], g: [], h: [] };
     const spacing2 = spacing ** 2;
+    const isStable = Boolean(options.map.graph.stable); // every grid cell kept as is, so the graph does not depend on the coastline
 
     const addNewPoint = (gridCellId: number, x: number, y: number, height: number) => {
       newCells.p.push([x, y]);
@@ -26,6 +27,11 @@ class PackModule {
 
     for (const i of gridCells.i) {
       const height = gridCells.h[i];
+      if (isStable) {
+        addNewPoint(i, points[i][0], points[i][1], height);
+        continue;
+      }
+
       const type = gridCells.t[i];
 
       if (height < SEA_LEVEL && type !== -1 && type !== -2) continue; // exclude all deep ocean points

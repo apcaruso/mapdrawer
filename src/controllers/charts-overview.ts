@@ -652,6 +652,11 @@ function renderChart({ id, entity, plotBy, groupBy, sorting, type, excludeNeutra
     });
   });
 
+  if (!chartData.length) {
+    tip(`Nothing to chart: the map has no ${entityLabel.toLowerCase()} data yet`, false, "warn");
+    return;
+  }
+
   const sortedData = sortData(chartData, sorting);
   const colors = getColors();
   const { offset, formatX = formatTicks } = plotTypeMap[type];

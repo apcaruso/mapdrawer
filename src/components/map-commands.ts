@@ -3,7 +3,6 @@ import { refreshEditors } from "@/components/dialog/dialog-helpers";
 import type { LayerId } from "@/components/layers";
 import { Layers } from "@/components/layers";
 import { applyPreset, savePreset } from "@/components/layers-presets";
-import { regeneratePrompt } from "@/components/lifecycle";
 import {
   loadURL,
   openExportToPngTiles,
@@ -51,7 +50,12 @@ export const MAP_COMMANDS: MapCommand[] = [
     aliases: "help guide tutorial",
     run: () => Services.UiTour.start()
   },
-  { id: "newMap", name: "Generate New Map", aliases: "regenerate random create", run: () => regeneratePrompt() },
+  {
+    id: "newMap",
+    name: "New Map",
+    aliases: "blank empty ocean regenerate random create",
+    run: () => Controllers.NewMapDialog.open()
+  },
   {
     id: "saveToMachine",
     name: "Save Map File",

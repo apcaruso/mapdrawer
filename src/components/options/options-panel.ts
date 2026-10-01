@@ -108,7 +108,7 @@ function initialize(): void {
 
   ensureEl("sticked").addEventListener("click", event => {
     const id = (event.target as HTMLElement).id;
-    if (id === "newMapButton") regeneratePrompt();
+    if (id === "newMapButton") Controllers.NewMapDialog.open();
     else if (id === "saveButton") showSavePane();
     else if (id === "exportButton") showExportPane();
     else if (id === "loadButton") void showLoadPane();

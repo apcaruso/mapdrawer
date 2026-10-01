@@ -128,7 +128,8 @@ const units = z.strictObject({
  */
 export const mapSchema = z.strictObject({
   seed: z.string(),
-  graph: z.strictObject({ width: positive, height: positive, points: positive }),
+  // stable: the packed graph keeps every grid cell, so cell ids survive coastline edits (drawn maps)
+  graph: z.strictObject({ width: positive, height: positive, points: positive, stable: z.boolean().optional() }),
   geography,
   climate,
   cultures: z.strictObject({ set: cultureSetId }),
@@ -185,7 +186,7 @@ export const optionsSchema = z.strictObject({
       stateHalos: z.boolean(),
       viewportRedraw: z.enum(["continuous", "settled"])
     }),
-    onLoad: z.enum(["random", "lastSaved"]), // what the app does with no map asked for
+    onLoad: z.enum(["blank", "random", "lastSaved"]), // what the app does with no map asked for
     zoomExtent: z.strictObject({ min: positive, max: positive }).refine(({ min, max }) => min <= max, {
       message: "zoomExtent.min must not exceed max"
     }),

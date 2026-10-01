@@ -13,6 +13,8 @@ import "./options/view-mode";
 import "./options/options-panel";
 import "./seed";
 import "./lifecycle";
+import "./blank-map";
+import "./hidden-modules";
 import "./dialog/dialog-helpers";
 import "./dialog/sorting";
 import "./shared/fill-box";

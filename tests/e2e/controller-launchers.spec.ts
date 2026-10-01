@@ -31,9 +31,8 @@ test.describe("controller launchers", () => {
       Goods.sync();
     });
 
-    await page.click("#optionsTrigger");
-    await page.click("#toolsTab");
-    await page.click("#editGoods");
+    // the fork hides the Goods button, the editor itself still opens
+    await page.evaluate(() => (window as any).Controllers.GoodsEditor.open());
 
     await expect(page.locator("#goodsEditor")).toBeVisible();
     await expect(page.locator("#goodsBody .goodName", {hasText: "No Production"})).toBeVisible();

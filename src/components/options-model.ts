@@ -87,7 +87,7 @@ class OptionsModel {
         labels: { showAll: false },
         heightmapEditor: { renderOcean: false, showDrainage: false, allowErosion: true },
         performance: { shapeRendering: "optimizeSpeed", stateHalos: false, viewportRedraw: "continuous" }, // "balance"
-        onLoad: "random",
+        onLoad: "blank",
         zoomExtent: { min: 1, max: 20 },
         viewport: null,
         autosave: { interval: 15, remind: true },

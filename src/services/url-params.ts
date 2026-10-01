@@ -1,6 +1,7 @@
 // Everything the app reads from, or writes to, its own URL: what to load on start-up, where to focus,
 // and the shareable link. Deep links come from the wiki, from shared maps and from MFCG
 import { leastIndex, select } from "d3";
+import { blankMapOnLoad } from "@/components/blank-map";
 import { fitMapToScreen } from "@/components/canvas";
 import { Layers } from "@/components/layers";
 import { applyLayersPreset, applyURLLayers } from "@/components/layers-presets";
@@ -54,8 +55,14 @@ export async function checkLoadParameters(): Promise<void> {
     }
   }
 
-  WARN && console.warn("Generate random map");
-  generateMapOnLoad(size);
+  if (options.app.onLoad === "random") {
+    WARN && console.warn("Generate random map");
+    generateMapOnLoad(size);
+    return;
+  }
+
+  WARN && console.warn("Start a blank map");
+  blankMapOnLoad();
 }
 
 /** The start-up path: style, world, layers, then wherever the URL says to look */

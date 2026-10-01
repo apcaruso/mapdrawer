@@ -364,9 +364,9 @@
         </button>
         <button
           id="regenerate"
-          data-tip="Click to generate a new map"
+          data-tip="Click to create a new map"
           data-shortcut="F2"
-          onclick="regeneratePrompt()"
+          onclick="Controllers.NewMapDialog.open()"
           class="options"
           style="display: none"
         >
@@ -398,7 +398,7 @@
         <div id="customizationMenu" class="tabcontent"></div>
         <div id="aboutContent" class="tabcontent"></div>
         <div id="sticked">
-          <button id="newMapButton" data-tip="Generate a new map based on options" data-shortcut="F2">New Map</button>
+          <button id="newMapButton" data-tip="Create a new map: a blank ocean or a random world" data-shortcut="F2">New Map</button>
           <button id="exportButton" data-tip="Select format to download image or export map data">Export</button>
           <button id="saveButton" data-tip="Save fully-functional map file">Save</button>
           <button id="loadButton" data-tip="Load fully-functional map (.map or .gz formats)">Load</button>

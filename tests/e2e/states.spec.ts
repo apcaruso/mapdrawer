@@ -69,8 +69,11 @@ test.describe("States", () => {
     await page.click(".ui-dialog:has(#statesEditor) .ui-dialog-titlebar-close");
     await page.waitForTimeout(200);
 
-    // Now click "Military" regenerate button and verify no errors
-    await page.click("#regenerateMilitary");
+    // Regenerate military and verify no errors; the fork hides the button, so the module is called directly
+    await page.evaluate(() => {
+      (window as any).Military.regenerate();
+      (window as any).Layers.draw("military");
+    });
     await page.waitForTimeout(1000);
 
     // Verify military was regenerated without throwing

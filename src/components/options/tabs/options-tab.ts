@@ -160,7 +160,7 @@ const OPTION_BINDINGS: Record<string, OptionBinding> = {
   onloadBehavior: option({
     read: o => o.app.onLoad,
     write: (o, value) => (o.app.onLoad = value),
-    parse: value => (value === "lastSaved" ? "lastSaved" : "random")
+    parse: value => (value === "lastSaved" || value === "random" ? value : "blank")
   }),
   autosaveInterval: option({
     read: o => o.app.autosave.interval,
@@ -433,7 +433,8 @@ const TEMPLATE = /* html */ `
       <td>On load</td>
       <td>
         <select id="onloadBehavior" data-option="onloadBehavior">
-          <option value="random" selected>Generate random map</option>
+          <option value="blank" selected>Start a blank map</option>
+          <option value="random">Generate random map</option>
           <option value="lastSaved">Open last saved map</option>
         </select>
       </td>
