@@ -23,6 +23,33 @@ if (typeof document === "undefined") {
   };
 }
 
+// Node 25+ defines a global localStorage that is undefined without --localstorage-file and shadows jsdom's
+if (typeof localStorage === "undefined" || typeof localStorage?.clear !== "function") {
+  // items are own properties and methods live on the prototype, so Object.keys(localStorage) lists items as in a browser
+  class MemoryStorage {
+    [key: string]: unknown;
+    get length(): number {
+      return Object.keys(this).length;
+    }
+    clear(): void {
+      for (const key of Object.keys(this)) delete this[key];
+    }
+    getItem(key: string): string | null {
+      return Object.hasOwn(this, key) ? (this[key] as string) : null;
+    }
+    key(index: number): string | null {
+      return Object.keys(this)[index] ?? null;
+    }
+    removeItem(key: string): void {
+      delete this[key];
+    }
+    setItem(key: string, value: string): void {
+      this[key] = String(value);
+    }
+  }
+  Object.defineProperty(globalThis, "localStorage", { value: new MemoryStorage(), configurable: true, writable: true });
+}
+
 // Stub the tooltip globals (registered by services/tooltips) so the registry's
 // lazy-load loading tip doesn't throw outside the browser
 if (typeof window.tip === "undefined") {

@@ -1,0 +1,28 @@
+{
+  "url": "http://localhost:5173/Fantasy-Map-Generator/",
+  "date": "2026-10-01T11:50:14.682Z",
+  "firstMapMs": 3532,
+  "random": {
+    "generateMs": 819,
+    "drawAllMs": 168,
+    "layerMs": {
+      "burgIcons": 3.7,
+      "labels": 100,
+      "routes": 7.3,
+      "states": 3.5,
+      "borders": 9.6,
+      "rivers": 9.5,
+      "ocean": 2.7,
+      "landmass": 14.2,
+      "coastline": 0.1
+    },
+    "gridCells": 10033,
+    "packCells": 4184,
+    "landCells": 3039,
+    "burgs": 627,
+    "svgNodes": 1886
+  },
+  "errors": [
+    "Name is too short! Random name will be selected"
+  ]
+}
