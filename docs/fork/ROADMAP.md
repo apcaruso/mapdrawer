@@ -21,7 +21,8 @@
 | 3 — Terreno live | ✅ | Vedi sotto |
 | 4 — Mappa fisica | ✅ | Vedi sotto |
 | 5 — Mappa politica | ✅ | Vedi sotto |
-| 6–9 | da fare | |
+| 6 — Città, strade, etichette, marker | ✅ | Vedi sotto |
+| 7–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -222,6 +223,43 @@ secchiello, poi Espandi):
 - Lo stato si crea dalla capitale; non c'è uno stato "senza capitale".
 - "Genera province per uno stato" resta agli assistenti dello Step 8.
 - La pittura delle zone resta nel vecchio modo (Apply/Cancel).
+
+### Cosa fa lo Step 6
+
+- **Città (U)**: un clic piazza la città, poi compare un **campo nome sulla mappa** con il nome proposto già
+  selezionato. Invio o un altro clic confermano, Esc tiene la proposta.
+  - Il tipo (town di default, oppure Auto, city, village…) si sceglie dalla barra opzioni.
+  - Le strade automatiche verso la nuova città sono **spente** di default; "Roads" le riaccende.
+- **Strada (O)**: si trascina lungo il percorso (`src/generators/drawn-routes.ts`).
+  - Strade e sentieri restano sulla terra, le rotte marittime sull'acqua.
+  - Un estremo disegnato vicino a una città (fino a 3 celle) la raggiunge.
+  - Il tipo si sceglie tra i gruppi di strada.
+- **Etichetta (T)**: un clic crea un'etichetta dritta, un trascinamento un'etichetta che **segue la curva** disegnata.
+  - Il testo si scrive subito nel campo sulla mappa.
+  - L'arco di un'etichetta dritta si adatta al testo.
+- **Marker (K)**: il tipo si sceglie dal menu della barra opzioni, con l'icona.
+- **Trascina per spostare**, nell'interazione di default (Select). Città, etichette di città, etichette libere e marker
+  seguono il puntatore. Ogni spostamento è un passo di Annulla; un clic senza movimento apre ancora l'editor.
+  `Burgs.relocate()` è ora condiviso con l'editor della città.
+- **Rendering incrementale**: aggiungere o rinominare ridisegna la sola etichetta (`getLabelData` e `redrawLabel`),
+  non tutte. `removeLabel` è disponibile.
+- **Test**: `drawn-routes.test.ts` (4).
+
+**Misure** (20 città di fila con clic reali, mappa casuale da circa 700 città)
+
+| | Prima | Dopo |
+| --- | --- | --- |
+| Mediana per clic, frame incluso | 128 ms | 50 ms |
+| Massimo per clic | 168 ms | 81 ms |
+
+Del tempo JavaScript che resta, circa 16 ms sono la copia delle città per Annulla e 5 ms il ridisegno delle icone.
+
+**Limiti noti dello Step 6**
+- Nello stile di default una "town" è un puntino e il suo nome compare solo da zoom 2.
+- Le città disegnate partono con popolazione minima, perché la terra disegnata non ha popolazione. Il calcolo della
+  popolazione spetta agli assistenti (Step 8).
+- Le etichette degli stati si spostano ancora dal loro editor.
+- I nomi dei marker non si scrivono inline.
 
 ### Misure dopo lo Step 1
 

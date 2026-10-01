@@ -45,6 +45,15 @@ export function redrawLabel(label: LabelData): void {
   materializeLabel(stored, ViewportLayers.getContext());
 }
 
+/** Take a single label off the layer, leaving the rest untouched */
+export function removeLabel(id: string): void {
+  const previous = scene.get(id);
+  if (!previous) return;
+  unindexLabel(previous);
+  scene.remove(id);
+  removeMaterialized(id, document);
+}
+
 export function getSceneLabel(type: LabelType, id: number): LabelData | undefined {
   return scene.get(`${type}Label${id}`);
 }

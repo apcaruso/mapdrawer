@@ -755,42 +755,12 @@ function toggleRelocateBurg(): void {
 }
 
 function relocateBurgOnClick(this: SVGGElement, event: any): void {
-  const cells = pack.cells;
-  const point = getPointer(event, this);
-  const cellId = Pack.findCell(point[0], point[1])!;
-  const id = getSelectedId();
-  const burg = pack.burgs[id];
-
-  if (cells.h[cellId] < 20) {
-    tip("Cannot place burg into the water! Select a land cell", false, "error");
+  const point = getPointer(event, this) as [number, number];
+  const error = Burgs.relocate(getSelectedId(), point);
+  if (error) {
+    tip(error, false, "error");
     return;
   }
-  if (cells.burg[cellId] && cells.burg[cellId] !== id) {
-    tip("There is already a burg in this cell. Please select a free cell", false, "error");
-    return;
-  }
-
-  const newState = cells.state[cellId];
-  const oldState = burg.state;
-  if (newState !== oldState && burg.capital) {
-    tip("Capital cannot be relocated into another state!", false, "error");
-    return;
-  }
-
-  const x = rn(point[0], 2);
-  const y = rn(point[1], 2);
-
-  // change data
-  cells.burg[burg.cell] = 0;
-  cells.burg[cellId] = id;
-  burg.cell = cellId;
-  burg.state = newState;
-  burg.x = x;
-  burg.y = y;
-  if (burg.capital) pack.states[newState].center = burg.cell;
-
-  // the label snaps back to the relocated burg, so its custom path is no longer valid
-  if (burg.label) Object.assign(burg.label, { dx: 0, dy: 0, pathPoints: undefined });
   Layers.draw("burgIcons", "labels");
 
   if (event.shiftKey === false) toggleRelocateBurg();

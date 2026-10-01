@@ -742,7 +742,8 @@ class BurgModule {
     return previewGeneratorsMap[group.preview](burg);
   }
 
-  add([x, y]: [number, number]) {
+  /** a new burg at the point; `connect` links it to the road network */
+  add([x, y]: [number, number], connect = true) {
     const { cells } = pack;
 
     const burgId = pack.burgs.length;
@@ -777,8 +778,32 @@ class BurgModule {
     pack.burgs.push(burg);
     cells.burg[cellId as number] = burgId;
 
-    Routes.connect(cellId as number);
+    if (connect) Routes.connect(cellId as number);
     return burgId;
+  }
+
+  /** move a burg to a land point; returns why it cannot move, or nothing when it moved */
+  relocate(burgId: number, [x, y]: [number, number]): string | undefined {
+    const { cells } = pack;
+    const burg = pack.burgs[burgId];
+    const cellId = Pack.findCell(x, y);
+    if (cellId === undefined || cells.h[cellId] < 20) return "Cannot place burg into the water! Select a land cell";
+    if (cells.burg[cellId] && cells.burg[cellId] !== burgId) return "There is already a burg in this cell";
+
+    const newState = cells.state[cellId];
+    if (newState !== burg.state && burg.capital) return "Capital cannot be relocated into another state!";
+
+    cells.burg[burg.cell] = 0;
+    cells.burg[cellId] = burgId;
+    burg.cell = cellId;
+    burg.state = newState;
+    burg.feature = cells.f[cellId];
+    burg.x = rn(x, 2);
+    burg.y = rn(y, 2);
+    if (burg.capital) pack.states[newState].center = cellId;
+    // the label snaps back to the relocated burg, so its custom path is no longer valid
+    if (burg.label) Object.assign(burg.label, { dx: 0, dy: 0, pathPoints: undefined });
+    return undefined;
   }
 
   regenerate(): void {

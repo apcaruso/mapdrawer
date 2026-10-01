@@ -1,11 +1,9 @@
 // The tools of the palette: adapters over the existing editors and creators
-import { pointer, select } from "d3";
-import { type LayerId, Layers } from "@/components/layers";
 import { SELECT_TOOL, type Tool } from "@/components/tools/tool-manager";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
+import type { PlacesTool } from "@/controllers/places-tools";
 import type { TerrainMode } from "@/controllers/terrain-tools";
-import type { Point } from "@/types/global";
 import { findEl } from "@/utils";
 
 const icon = (name: string) => `<span class="icon-${name}"></span>`;
@@ -38,17 +36,15 @@ function terrainTool(spec: Omit<ToolSpec, "group">, mode: TerrainMode): Tool {
   };
 }
 
-/** click on the map to place something; stays active until another tool is picked */
-function placementTool(spec: ToolSpec, layers: LayerId[], place: (point: Point) => unknown): Tool {
+/** burgs, labels, markers and routes: placed with one gesture, the tool stays active until another is picked */
+function placesTool(spec: Omit<ToolSpec, "group">, tool: PlacesTool): Tool {
   return {
     ...spec,
-    activate: () => {
-      Layers.show(...layers);
-      select<SVGGElement, unknown>("#viewbox")
-        .style("cursor", "crosshair")
-        .on("click", (event: MouseEvent) => place(pointer(event, event.currentTarget as SVGGElement) as Point));
+    group: "places",
+    activate: async end => {
+      if (!(await Controllers.PlacesTools.start(tool))) end();
     },
-    deactivate: applyDefaultViewboxEvents
+    deactivate: () => Controllers.PlacesTools.stop()
   };
 }
 
@@ -193,45 +189,38 @@ export const DRAWING_TOOLS: Tool[] = [
     },
     deactivate: () => Controllers.RiverTool.stop()
   },
-  placementTool(
+  placesTool(
     {
       id: "burg",
       name: "Burg",
-      group: "places",
       icon: icon("fort-awesome"),
       key: "KeyU",
-      hint: "click on land to place a burg"
+      hint: "click on land to place a burg, then type its name"
     },
-    ["burgIcons", "labels"],
-    point => Controllers.BurgCreator.addAt(point)
+    "burg"
   ),
-  dialogTool(
+  placesTool(
     {
       id: "route",
       name: "Route",
-      group: "places",
       icon: icon("map-signs"),
       key: "KeyO",
-      hint: "click cells along the way, then confirm in the dialog"
+      hint: "drag along the way; an end drawn close to a burg reaches it"
     },
-    "routeCreator",
-    () => Controllers.RouteCreator.open()
+    "route"
   ),
-  placementTool(
-    { id: "label", name: "Label", group: "places", icon: icon("font"), key: "KeyT", hint: "click to place a label" },
-    ["labels"],
-    point => Controllers.LabelCreator.addAt(point)
-  ),
-  placementTool(
+  placesTool(
     {
-      id: "marker",
-      name: "Marker",
-      group: "places",
-      icon: icon("map-pin"),
-      key: "KeyK",
-      hint: "click to place a marker"
+      id: "label",
+      name: "Label",
+      icon: icon("font"),
+      key: "KeyT",
+      hint: "click for a straight label or drag to write along a curve, then type the text"
     },
-    ["markers"],
-    point => Controllers.MarkerCreator.addAt(point)
+    "label"
+  ),
+  placesTool(
+    { id: "marker", name: "Marker", icon: icon("map-pin"), key: "KeyK", hint: "click to place a marker" },
+    "marker"
   )
 ];

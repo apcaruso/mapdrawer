@@ -21,6 +21,16 @@ export function getLabelsIndex(): LabelIndexEntry[] {
   return build(false);
 }
 
+/** one label, as the full build would make it; nothing when its entity has none */
+export function getLabelData(type: LabelType, id: number): LabelData | undefined {
+  if (type === "burg") return pack.burgs[id] ? buildBurgLabel(pack.burgs[id]) : undefined;
+  if (type === "added") {
+    const addedLabel = pack.addedLabels.find(label => label.i === id);
+    return addedLabel ? buildAddedLabel(addedLabel) : undefined;
+  }
+  return build(true).find(label => label.type === type && label.entityId === id);
+}
+
 function build(geometry: boolean): LabelData[] {
   const byType: Record<LabelType, LabelData[]> = {
     state: collect(pack.states, state => buildStateLabel(state, geometry), true),

@@ -50,6 +50,7 @@ export const Controllers = createRegistry({
   NewMapDialog: () => import("@/controllers/new-map-dialog").then(m => m.NewMapDialog),
   NotesEditor: () => import("@/controllers/notes-editor").then(m => m.NotesEditor),
   Omnibar: () => import("@/controllers/omnibar").then(m => m.Omnibar),
+  PlacesTools: () => import("@/controllers/places-tools").then(m => m.PlacesTools),
   PaintEditor: () => import("@/controllers/paint-editor").then(m => m.PaintEditor),
   ProductionChains: () => import("@/controllers/production-chains").then(m => m.ProductionChains),
   ProductionOverview: () => import("@/controllers/production-overview").then(m => m.ProductionOverview),

@@ -90,7 +90,7 @@ function findOutlet([x, y]: Point, course: readonly number[]): number | undefine
 }
 
 /** neighbour by neighbour from one cell toward another, the target included */
-function connect(from: number, to: number): number[] {
+export function connect(from: number, to: number): number[] {
   const { c: neighbors, p } = pack.cells;
   const distance = (cell: number) => Math.hypot(p[cell][0] - p[to][0], p[cell][1] - p[to][1]);
   const path: number[] = [];
@@ -108,7 +108,7 @@ function connect(from: number, to: number): number[] {
 }
 
 /** points along the stroke, no further apart than the step */
-function densify(stroke: readonly Point[], step: number): Point[] {
+export function densify(stroke: readonly Point[], step: number): Point[] {
   const points: Point[] = stroke.length ? [stroke[0]] : [];
   for (let i = 1; i < stroke.length; i++) {
     const [x0, y0] = stroke[i - 1];

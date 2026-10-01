@@ -4,6 +4,7 @@ import { Controllers } from "@/controllers";
 import type { LabelType } from "@/generators/labels-generator";
 import { dragLegendBox } from "@/renderers/draw-legend";
 import { debounce } from "@/utils/commonUtils";
+import { attachDragToMove } from "./drag-move";
 import { handleMouseMove } from "./map-tooltip";
 import { applyZoomBehavior } from "./zoom";
 
@@ -12,11 +13,12 @@ const onMouseMove = debounce(handleMouseMove, 100);
 export function applyDefaultViewboxEvents(): void {
   applyZoomBehavior();
 
-  select<SVGGElement, unknown>("#viewbox")
+  const viewbox = select<SVGGElement, unknown>("#viewbox")
     .style("cursor", "default")
     .on(".drag", null)
     .on("click", onClick)
     .on("touchmove mousemove", onMouseMove);
+  attachDragToMove(viewbox);
 
   select<SVGGElement, unknown>("#legend").call(drag<SVGGElement, unknown>().on("start", dragLegendBox));
 }

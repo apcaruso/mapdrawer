@@ -207,6 +207,6 @@ function subscribe(listener: () => void): () => void {
 
 const peek = () => ({ undo: past.at(-1)?.label, redo: future.at(-1)?.label });
 
-window.addEventListener("map:generated", clear); // a new or loaded world: nothing before it applies
+globalThis.addEventListener?.("map:generated", clear); // a new or loaded world: nothing before it applies
 
 export const UndoHistory = { record, undo, redo, clear, subscribe, peek };
