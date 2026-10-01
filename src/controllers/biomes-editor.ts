@@ -479,11 +479,17 @@ function downloadBiomesData(): void {
 }
 
 function openPaintEditor(): void {
+  void paint(open);
+}
+
+/** paint biomes on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
+function paint(onClose: () => void): Promise<boolean> {
   Layers.show("biomes");
-  void Controllers.PaintEditor.open({
+  return Controllers.PaintEditor.open({
     title: "Paint Biomes",
     parentDialogId: dialogId,
-    onClose: open,
+    onClose,
+    history: { domains: ["cells.biome"], layers: ["biomes"] },
     items: pack.biomes
       .filter(biome => biome.i && !biome.removed)
       .map(biome => ({ id: biome.i, name: biome.name, color: biome.color })),
@@ -519,4 +525,4 @@ function regeneratePopulation(): void {
   Layers.draw("population", "goods");
 }
 
-export const BiomesEditor = { open, exportCsv: downloadBiomesData };
+export const BiomesEditor = { open, paint, exportCsv: downloadBiomesData };

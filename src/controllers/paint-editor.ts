@@ -3,6 +3,7 @@ import { destroyDialog } from "@/components/dialog/dialog-helpers";
 import { MapBrush } from "@/components/map-brush";
 import type { FillBoxElement } from "@/components/shared/fill-box";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { type HistoryAction, UndoHistory } from "@/components/undo-history";
 import {
   openPaintOverlay,
   type PaintOverlayCell,
@@ -26,6 +27,7 @@ interface CommonPaintEditorOptions {
   items: readonly PaintEditorItem[];
   dontOverrideControl?: boolean;
   landOnlyControl?: boolean;
+  history?: Omit<HistoryAction, "label">; // what the apply changes, so it can be undone
 }
 
 export interface PaintEditorOptions extends CommonPaintEditorOptions {
@@ -64,8 +66,9 @@ const eraseAllValue = -1;
 let state: PaintEditorState | null = null;
 let brush: MapBrush | null = null;
 
-function open(options: OpenPaintEditorOptions): void {
-  if (customization) return;
+/** returns false when another edit mode is active and the editor cannot open */
+function open(options: OpenPaintEditorOptions): boolean {
+  if (customization) return false;
 
   $(`#${options.parentDialogId}`).dialog("close");
   customization = customizationMode;
@@ -101,7 +104,7 @@ function open(options: OpenPaintEditorOptions): void {
       title: options.title,
       resizable: false,
       position: { my: "right top", at: "right-10 top+10", of: "svg", collision: "fit" },
-      close: cancel
+      close: apply // closing keeps the painting, as switching tools does; Cancel discards it
     });
 
     tip("Click to select, drag to paint. Shift + drag resizes the brush, Space + drag pans the map", true);
@@ -109,6 +112,7 @@ function open(options: OpenPaintEditorOptions): void {
     close(options.onClose);
     throw error;
   }
+  return true;
 }
 
 function sortItems(items: readonly PaintEditorItem[]): PaintEditorItem[] {
@@ -290,6 +294,13 @@ function recordHistory(entry: PaintHistoryEntry): void {
   ensureEl<HTMLButtonElement>("paintEditorUndo").disabled = false;
 }
 
+/** undo the latest stroke of the open session; false when there is none */
+function undoStroke(): boolean {
+  if (!state || state.finalized || !state.history.length) return false;
+  undo();
+  return true;
+}
+
 function undo(): void {
   const activeState = getState();
   const entry = activeState.history.pop();
@@ -317,10 +328,14 @@ function finish(shouldApply: boolean): void {
   activeState.finalized = true;
 
   try {
+    const { options, changes } = activeState;
     if (shouldApply) {
-      const { options, changes } = activeState;
-      if (options.mode === "multiple") options.onApply(new Map(changes));
-      else options.onApply(new Map([...changes].map(([cell, values]) => [cell, values[0]])));
+      const applyChanges = () => {
+        if (options.mode === "multiple") options.onApply(new Map(changes));
+        else options.onApply(new Map([...changes].map(([cell, values]) => [cell, values[0]])));
+      };
+      if (options.history) UndoHistory.record({ label: options.title, ...options.history }, applyChanges);
+      else applyChanges();
     }
   } finally {
     close(activeState.options.onClose);
@@ -350,4 +365,4 @@ function getState(): PaintEditorState {
   return state;
 }
 
-export const PaintEditor = { open };
+export const PaintEditor = { open, apply, undoStroke };

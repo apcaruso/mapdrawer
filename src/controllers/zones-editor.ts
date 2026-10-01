@@ -292,6 +292,7 @@ function openPaintEditor(): void {
     title: "Paint Zones",
     parentDialogId: dialogId,
     onClose: open,
+    history: { domains: ["zones"], layers: ["zones"] },
     mode: "multiple",
     items: [
       { id: -1, name: "No zone", color: "#ffffff" },

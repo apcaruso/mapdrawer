@@ -901,12 +901,18 @@ function recalculateCultures(force?: boolean): void {
 }
 
 function openPaintEditor(): void {
+  void paint(open);
+}
+
+/** paint cultures on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
+function paint(onClose: () => void): Promise<boolean> {
   Layers.show("cultures");
 
-  void Controllers.PaintEditor.open({
+  return Controllers.PaintEditor.open({
     title: "Paint Cultures",
     parentDialogId: dialogId,
-    onClose: open,
+    onClose,
+    history: { domains: ["cells.culture", "burgs"], layers: ["cultures"] },
     items: pack.cultures
       .filter(culture => !culture.removed)
       .map(culture => ({ id: culture.i, name: culture.name, color: culture.color || "#ffffff" })),
@@ -1130,4 +1136,4 @@ function updateLockStatus(this: HTMLElement): void {
   classList.toggle("icon-lock");
 }
 
-export const CulturesEditor = { open, showHierarchy };
+export const CulturesEditor = { open, paint, showHierarchy };

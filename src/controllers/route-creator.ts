@@ -3,6 +3,7 @@ import { closeDialogs, destroyDialog } from "@/components/dialog/dialog-helpers"
 import { Layers } from "@/components/layers";
 import { stopMapPlacement } from "@/components/map-placement";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
 import type { Route } from "@/generators/routes-generator";
@@ -137,24 +138,26 @@ function completeCreation(): void {
   const group = ensureEl<HTMLSelectElement>("routeCreatorGroupSelect").value;
   const feature = pack.cells.f[points[0][2]];
   const route = { points, group, feature, i: routeId } as Route;
-  pack.routes.push(route);
+  UndoHistory.record({ label: "Add route", domains: ["routes", "cells.routes"], layers: ["routes"] }, () => {
+    pack.routes.push(route);
 
-  const links = pack.cells.routes;
-  for (let i = 0; i < points.length; i++) {
-    const point = points[i];
-    const nextPoint = points[i + 1];
+    const links = pack.cells.routes;
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
+      const nextPoint = points[i + 1];
 
-    if (nextPoint) {
-      const cellId = point[2];
-      const nextId = nextPoint[2];
+      if (nextPoint) {
+        const cellId = point[2];
+        const nextId = nextPoint[2];
 
-      if (!links[cellId]) links[cellId] = {};
-      links[cellId][nextId] = routeId;
+        if (!links[cellId]) links[cellId] = {};
+        links[cellId][nextId] = routeId;
 
-      if (!links[nextId]) links[nextId] = {};
-      links[nextId][cellId] = routeId;
+        if (!links[nextId]) links[nextId] = {};
+        links[nextId][cellId] = routeId;
+      }
     }
-  }
+  });
 
   setTempRoute(null);
   Layers.draw("routes");

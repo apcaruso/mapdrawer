@@ -842,12 +842,18 @@ function syncFilterControls(): void {
 }
 
 function openPaintEditor(): void {
+  void paint(open);
+}
+
+/** paint religions on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
+function paint(onClose: () => void): Promise<boolean> {
   Layers.show("religions");
 
-  void Controllers.PaintEditor.open({
+  return Controllers.PaintEditor.open({
     title: "Paint Religions",
     parentDialogId: dialogId,
-    onClose: open,
+    onClose,
+    history: { domains: ["cells.religion"], layers: ["religions"] },
     items: pack.religions
       .filter(religion => !religion.removed && (!religion.i || religion.cells))
       .map(religion => ({ id: religion.i, name: religion.name, color: religion.color || "#ffffff" })),
@@ -998,4 +1004,4 @@ function closeReligionsEditor(): void {
   ensureEl("religionsEditor").remove();
 }
 
-export const ReligionsEditor = { open, showHierarchy };
+export const ReligionsEditor = { open, paint, showHierarchy };

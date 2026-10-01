@@ -40,18 +40,18 @@ test.describe("Lakes layer", () => {
     await expect(lakes).toBeVisible();
   });
 
-  test("KeyQ toggles the lakes layer", async ({ page }) => {
+  test("Alt + Q toggles the lakes layer", async ({ page }) => {
     const lakes = page.locator("#lakes");
 
     // Lakes should be visible by default
     await expect(lakes).toBeVisible();
 
-    // Press Q to hide lakes; wait for jQuery fadeOut to complete
-    await page.keyboard.press("q");
+    // Press Alt + Q to hide lakes (plain letters pick tools in the fork); wait for jQuery fadeOut to complete
+    await page.keyboard.press("Alt+q");
     await expect(lakes).toBeHidden();
 
-    // Press Q again to show lakes; wait for jQuery fadeIn to complete
-    await page.keyboard.press("q");
+    // Press Alt + Q again to show lakes; wait for jQuery fadeIn to complete
+    await page.keyboard.press("Alt+q");
     await expect(lakes).toBeVisible();
   });
 

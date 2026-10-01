@@ -2,6 +2,7 @@ import { select } from "d3";
 import { closeDialogs, destroyDialog } from "@/components/dialog/dialog-helpers";
 import { Layers } from "@/components/layers";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
 import type { Point } from "@/generators/voronoi";
@@ -102,13 +103,19 @@ function drawCells(cells: number[]): void {
 }
 
 function addRiver(): void {
-  const { rivers: packRivers, cells } = pack;
   const riverCells = creatorCells;
   if (riverCells.length < 2) {
     tip("Add at least 2 cells", false, "error");
     return;
   }
 
+  UndoHistory.record({ label: "Add river", domains: ["rivers", "cells.r"], layers: ["rivers"] }, () =>
+    createRiver(riverCells)
+  );
+}
+
+function createRiver(riverCells: number[]): void {
+  const { rivers: packRivers, cells } = pack;
   const riverId = Rivers.getNextId(packRivers);
   const parent = cells.r[last(riverCells)] || riverId;
 

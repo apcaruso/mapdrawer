@@ -1,0 +1,163 @@
+// The tools of the palette: adapters over the existing editors and creators
+import { pointer, select } from "d3";
+import { type LayerId, Layers } from "@/components/layers";
+import { SELECT_TOOL, type Tool } from "@/components/tools/tool-manager";
+import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
+import { Controllers } from "@/controllers";
+import type { Point } from "@/types/global";
+import { findEl } from "@/utils";
+
+const icon = (name: string) => `<span class="icon-${name}"></span>`;
+const svgIcon = (path: string) =>
+  `<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+
+type ToolSpec = Pick<Tool, "id" | "name" | "group" | "icon" | "key" | "hint">;
+
+/** paint cell values with the shared paint editor; the editor's own undo works on the strokes of the session */
+function paintTool(spec: ToolSpec, paint: (end: () => void) => Promise<boolean>): Tool {
+  return {
+    ...spec,
+    activate: async end => {
+      if (!(await paint(end))) throw new Error("another edit mode is active");
+    },
+    deactivate: () => Controllers.PaintEditor.apply(),
+    undo: () => Controllers.PaintEditor.undoStroke()
+  };
+}
+
+/** click on the map to place something; stays active until another tool is picked */
+function placementTool(spec: ToolSpec, layers: LayerId[], place: (point: Point) => unknown): Tool {
+  return {
+    ...spec,
+    activate: () => {
+      Layers.show(...layers);
+      select<SVGGElement, unknown>("#viewbox")
+        .style("cursor", "crosshair")
+        .on("click", (event: MouseEvent) => place(pointer(event, event.currentTarget as SVGGElement) as Point));
+    },
+    deactivate: applyDefaultViewboxEvents
+  };
+}
+
+/** a creator that works in its own dialog: the tool lives as long as the dialog */
+function dialogTool(spec: ToolSpec, dialogId: string, open: () => unknown): Tool {
+  return {
+    ...spec,
+    activate: async end => {
+      await open();
+      const dialog = findEl(dialogId);
+      if (!dialog) throw new Error("another edit mode is active");
+      $(dialog).one("dialogclose", end);
+    },
+    deactivate: () => {
+      const dialog = findEl(dialogId);
+      if (dialog) $(dialog).dialog("close");
+    }
+  };
+}
+
+export const DRAWING_TOOLS: Tool[] = [
+  {
+    id: SELECT_TOOL,
+    name: "Select",
+    group: "select",
+    icon: svgIcon('<path d="M5 3l14 8-6 1.5L10 19z" fill="currentColor"/>'),
+    key: "KeyV",
+    hint: "click a map element to edit it",
+    activate: applyDefaultViewboxEvents
+  },
+  paintTool(
+    {
+      id: "states",
+      name: "States",
+      group: "political",
+      icon: icon("crown"),
+      key: "KeyS",
+      hint: "drag to paint, click to pick the state under the pointer"
+    },
+    end => Controllers.StatesEditor.paint(end)
+  ),
+  paintTool(
+    {
+      id: "provinces",
+      name: "Provinces",
+      group: "political",
+      icon: icon("flag"),
+      key: "KeyP",
+      hint: "drag to paint provinces within their state"
+    },
+    end => Controllers.ProvincesEditor.paint(end)
+  ),
+  paintTool(
+    { id: "cultures", name: "Cultures", group: "political", icon: icon("users"), key: "KeyC", hint: "drag to paint" },
+    end => Controllers.CulturesEditor.paint(end)
+  ),
+  paintTool(
+    {
+      id: "religions",
+      name: "Religions",
+      group: "political",
+      icon: icon("place-of-worship"),
+      key: "KeyR",
+      hint: "drag to paint"
+    },
+    end => Controllers.ReligionsEditor.paint(end)
+  ),
+  paintTool(
+    { id: "biomes", name: "Biomes", group: "nature", icon: icon("tree"), key: "KeyG", hint: "drag to paint" },
+    end => Controllers.BiomesEditor.paint(end)
+  ),
+  dialogTool(
+    {
+      id: "river",
+      name: "River",
+      group: "nature",
+      icon: svgIcon('<path d="M4 4c4 2 0 6 4 8s6-2 8 2-2 6 4 6"/>'),
+      key: "KeyW",
+      hint: "click cells from the source to the mouth, then confirm in the dialog"
+    },
+    "riverCreator",
+    () => Controllers.RiverCreator.open()
+  ),
+  placementTool(
+    {
+      id: "burg",
+      name: "Burg",
+      group: "places",
+      icon: icon("fort-awesome"),
+      key: "KeyU",
+      hint: "click on land to place a burg"
+    },
+    ["burgIcons", "labels"],
+    point => Controllers.BurgCreator.addAt(point)
+  ),
+  dialogTool(
+    {
+      id: "route",
+      name: "Route",
+      group: "places",
+      icon: icon("map-signs"),
+      key: "KeyO",
+      hint: "click cells along the way, then confirm in the dialog"
+    },
+    "routeCreator",
+    () => Controllers.RouteCreator.open()
+  ),
+  placementTool(
+    { id: "label", name: "Label", group: "places", icon: icon("font"), key: "KeyT", hint: "click to place a label" },
+    ["labels"],
+    point => Controllers.LabelCreator.addAt(point)
+  ),
+  placementTool(
+    {
+      id: "marker",
+      name: "Marker",
+      group: "places",
+      icon: icon("map-pin"),
+      key: "KeyK",
+      hint: "click to place a marker"
+    },
+    ["markers"],
+    point => Controllers.MarkerCreator.addAt(point)
+  )
+];

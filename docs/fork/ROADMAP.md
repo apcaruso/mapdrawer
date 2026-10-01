@@ -17,7 +17,8 @@
 | --- | --- | --- |
 | 0 — Setup e baseline | ✅ | Niente repo GitHub (scelta dell'utente). Baseline in `perf-baseline.json`, sonda in `scripts/perf-probe.mjs` |
 | 1 — Mondo vuoto | ✅ | Vedi sotto |
-| 2–9 | da fare | |
+| 2 — ToolManager, palette, storia globale | ✅ | Vedi sotto. Barra opzioni contestuale rinviata allo Step 3, ispettore allo Step 6 |
+| 3–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -35,6 +36,52 @@ Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, 
   Il codice e i dati restano, quindi le mappe casuali e i file `.map` sono invariati.
 - Test: `blank-world.test.ts` (grafo stabile e pipeline). `test-setup.ts` ha uno storage in memoria per Node ≥ 25.
 - Fix: Charts Overview non disegna più grafici NaN quando non ci sono dati.
+
+### Cosa fa lo Step 2
+
+- **`src/components/undo-history.ts` (`UndoHistory`)**: storia globale.
+  - Ogni azione dichiara i domini che tocca: array per cella come `cells.state`, oppure collezioni come `states`
+    o `burgs` nello stesso JSON del `.map`.
+  - La storia conserva solo le differenze, fino a 100 passi o 64 MB.
+  - Prima di annullare controlla che la mappa sia ancora quella lasciata dal passo. Se nel frattempo qualcosa l'ha
+    modificata fuori dalla storia (un editor, una rigenerazione), rifiuta l'annullamento e lo dice, invece di
+    corrompere i dati.
+  - Si azzera quando cambia il mondo (nuova mappa o caricamento).
+- **`src/components/tools/tool-manager.ts` (`ToolManager`)**: un solo strumento attivo, con Select come base.
+  I cambi avvengono in fila, e uno strumento che si chiude da solo (dialog chiuso) torna a Select.
+- **`src/components/tools/drawing-tools.ts`**: gli strumenti, come adattatori sugli editor esistenti.
+
+  | Gruppo | Strumenti |
+  | --- | --- |
+  | Selezione | Select |
+  | Politica | States, Provinces, Cultures, Religions (pittura) |
+  | Natura | Biomes, River |
+  | Luoghi | Burg, Route, Label, Marker |
+
+  Gli strumenti di piazzamento restano attivi finché non se ne sceglie un altro.
+- **`src/components/tools/tool-palette.ts`**: la palette fissa a sinistra, con Annulla e Ripeti.
+  I comandi Tools/omnibar "Add burg/label/marker/route" e "Draw river" ora attivano lo strumento corrispondente.
+- **PaintEditor**: chiudere il dialog o cambiare strumento **applica** (Cancel scarta). L'applicazione diventa un passo
+  della storia. Gli editor espongono `paint(onClose)`, così la pittura si apre anche senza il loro dialog.
+- **Creatori** di città, etichette e marker: `addAt(point)` riusabile. Città, etichette, marker, rotte e fiumi creati
+  finiscono nella storia.
+- **Tastiera**:
+
+  | Tasti | Azione |
+  | --- | --- |
+  | V S P C R G W U O T K | Strumenti |
+  | Alt + lettera | Mostra o nasconde un layer (prima bastava la lettera) |
+  | Ctrl/Cmd + Z | Annulla: prima il passo interno dello strumento (l'ultima pennellata), poi la storia globale |
+  | Ctrl/Cmd + Shift + Z, Ctrl + Y | Ripeti |
+  | Esc | Select |
+- **Test**: `undo-history.test.ts` e `tool-manager.test.ts`.
+  L'e2e `lakes-layer` è stato aggiornato ad Alt + Q.
+
+**Limiti noti dello Step 2**
+- Le modifiche fatte negli editor (rinomina, cancella, rigenera) non entrano ancora nella storia. Dopo una di queste
+  modifiche, Annulla rifiuta i passi precedenti invece di romperli.
+- Su una mappa vuota la pittura degli stati offre solo "Neutrals": creare stati al volo è parte dello Step 5.
+- Il tipo di marker è quello già scelto nel Markers Overview.
 
 ### Misure dopo lo Step 1
 

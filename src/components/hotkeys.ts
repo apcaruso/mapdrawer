@@ -6,6 +6,8 @@ import { findEl, minmax } from "@/utils";
 import { showInfo } from "./app-info";
 import { closeDialogs } from "./dialog/dialog-helpers";
 import { getLayerByShortcut } from "./options/tabs/layers-tab";
+import { SELECT_TOOL, ToolManager } from "./tools/tool-manager";
+import { UndoHistory } from "./undo-history";
 import { changeMapZoom, panMap, setMapZoom } from "./zoom";
 
 // Hotkeys, see github.com/Azgaar/Fantasy-Map-Generator/wiki/Hotkeys
@@ -15,10 +17,28 @@ document.addEventListener("keyup", handleKeyup);
 function handleKeydown(event: KeyboardEvent): void {
   if (!allowHotkeys()) return; // in some cases (e.g. in a textarea) hotkeys are not allowed
 
-  const { code, ctrlKey, altKey, shiftKey } = event;
+  const { code, ctrlKey, metaKey, altKey, shiftKey } = event;
   if (altKey && !ctrlKey && !shiftKey) event.preventDefault(); // disallow plain alt key combinations
   if (ctrlKey && ["KeyS", "KeyC"].includes(code)) event.preventDefault(); // disallow CTRL + S and CTRL + C
   if (["F1", "F2", "F6", "F9", "Tab"].includes(code)) event.preventDefault(); // disallow default Fn and Tab
+
+  // on keydown: with Cmd held, macOS sends no keyup for the other keys
+  if ((ctrlKey || metaKey) && !altKey && (code === "KeyZ" || code === "KeyY")) {
+    event.preventDefault();
+    if (code === "KeyY" || shiftKey) redo();
+    else void undo();
+  }
+}
+
+/** a step of the legacy heightmap editor or of the active tool first, then the global history */
+async function undo(): Promise<void> {
+  if (customization === 1) return void findEl("undo")?.click();
+  if (!(await ToolManager.undo())) UndoHistory.undo();
+}
+
+function redo(): void {
+  if (customization === 1) return void findEl("redo")?.click();
+  UndoHistory.redo();
 }
 
 function handleKeyup(event: KeyboardEvent): void {
@@ -30,7 +50,9 @@ function handleKeyup(event: KeyboardEvent): void {
   const ctrl = ctrlKey || metaKey || key === "Control";
   const shift = (shiftKey || key === "Shift") && !altKey;
   const altShift = altKey && (shiftKey || key === "Shift") && !ctrl;
-  const layer = getLayerByShortcut(code);
+  const plain = !ctrl && !shiftKey && !altKey;
+  const layer = altKey && !shiftKey && !ctrl ? getLayerByShortcut(code) : undefined; // letters pick tools, Alt + letter toggles layers
+  const tool = plain ? ToolManager.byKey(code) : undefined;
   const brush = getVisibleBrush();
 
   if (code === "Space") openOmnibar(event);
@@ -40,6 +62,7 @@ function handleKeyup(event: KeyboardEvent): void {
   else if (code === "F9") Services.Load.quickLoad();
   else if (code === "Tab") toggleOptions(event);
   else if (code === "Escape") {
+    void ToolManager.activate(SELECT_TOOL);
     closeDialogs();
     hideOptions();
   } else if (code === "Delete") removeElementOnKey();
@@ -47,8 +70,8 @@ function handleKeyup(event: KeyboardEvent): void {
   else if (ctrl && code === "KeyQ") toggleSaveReminder();
   else if (ctrl && code === "KeyS") Services.Save.toMachine();
   else if (ctrl && code === "KeyC") Services.Save.toDropbox();
-  else if (ctrl && code === "KeyZ") findEl("undo")?.click();
-  else if (ctrl && code === "KeyY") findEl("redo")?.click();
+  else if (ctrl && (code === "KeyZ" || code === "KeyY"))
+    return; // handled on keydown
   else if ((shift || altShift) && code === "KeyH") Controllers.HeightmapEditor.open();
   else if ((shift || altShift) && code === "KeyB") Controllers.BiomesEditor.open();
   else if ((shift || altShift) && code === "KeyS") Controllers.StatesEditor.open();
@@ -71,13 +94,15 @@ function handleKeyup(event: KeyboardEvent): void {
   else if ((shift || altShift) && code === "KeyE") Controllers.CellInfo.open();
   else if ((shift || altShift) && code === "KeyW") Controllers.WrapTool.open();
   else if ((shift || altShift) && code === "Equal" && !brush) Controllers.MeasurersEditor.open();
-  else if (key === "!") Controllers.BurgCreator.toggle();
-  else if (key === "@") Controllers.LabelCreator.toggle();
-  else if (key === "#") Controllers.MarkerCreator.toggle();
+  else if (key === "!") ToolManager.activate("burg");
+  else if (key === "@") ToolManager.activate("label");
+  else if (key === "#") ToolManager.activate("marker");
   else if (key === "$") Controllers.RiverAutoCreator.toggle();
-  else if (key === "%") Controllers.RouteCreator.open();
+  else if (key === "%") ToolManager.activate("route");
   else if (code === "BracketRight") handleBracketSizeChange(code);
   else if (code === "BracketLeft" && handleBracketSizeChange(code)) return;
+  else if (tool && (!customization || customization === 2))
+    ToolManager.activate(tool.id); // painting gives way, other edit modes do not
   else if (layer && !(code === "Equal" && (customization || brush))) Layers.toggle(layer);
   else if (code === "ArrowLeft") panMap(10, 0);
   else if (code === "ArrowRight") panMap(-10, 0);

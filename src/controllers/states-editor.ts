@@ -28,6 +28,7 @@ import { highlightElement, highlightOutline } from "@/renderers/overlays/highlig
 import { applyOption, downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
 import {
   ensureEl,
+  findEl,
   formatPrice,
   getAdjective,
   getMixedColor,
@@ -1243,13 +1244,22 @@ function exitRegenerationMenu(): void {
 }
 
 function openPaintEditor(): void {
-  Layers.show("states");
-  const adjustLabels = ensureEl<HTMLInputElement>("adjustLabels").checked;
+  void paint(open);
+}
 
-  void Controllers.PaintEditor.open({
+/** paint states on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
+function paint(onClose: () => void): Promise<boolean> {
+  Layers.show("states");
+  const adjustLabels = findEl<HTMLInputElement>("adjustLabels")?.checked ?? true;
+
+  return Controllers.PaintEditor.open({
     title: "Paint States",
     parentDialogId: dialogId,
-    onClose: open,
+    onClose,
+    history: {
+      domains: ["cells.state", "cells.province", "states", "provinces", "burgs"],
+      layers: ["states", "borders", "provinces", "labels", "burgIcons", "emblems"]
+    },
     items: pack.states
       .filter(state => !state.removed)
       .map(state => ({ id: state.i, name: state.name, color: state.color || "#ffffff" })),
@@ -1825,4 +1835,4 @@ function updateLockStatus(stateId: number, classList: DOMTokenList): void {
   classList.toggle("icon-lock");
 }
 
-export const StatesEditor = { open, showChart: showStatesChart };
+export const StatesEditor = { open, paint, showChart: showStatesChart };

@@ -122,7 +122,7 @@ function render(): void {
       const item = document.createElement("li");
       item.dataset.layer = layer.id;
       item.dataset.tip = `${button.label.replace(/<\/?u>/g, "")}: click to toggle, drag to raise or lower the layer. Ctrl + click to edit layer style`;
-      if (button.shortcut) item.dataset.shortcut = button.hint ?? button.shortcut.replace("Key", "");
+      if (button.shortcut) item.dataset.shortcut = `Alt + ${button.hint ?? button.shortcut.replace("Key", "")}`; // letters alone pick tools
       item.innerHTML = button.label;
       item.classList.toggle("buttonoff", !Layers.isOn(layer.id));
       item.classList.toggle("solid", layer.params.parent !== "viewbox"); // layers outside the viewbox cannot be reordered

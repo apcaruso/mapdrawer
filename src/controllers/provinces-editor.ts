@@ -1087,12 +1087,18 @@ function triggerProvincesRelease(): void {
 }
 
 function openPaintEditor(): void {
+  void paint(open);
+}
+
+/** paint provinces on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
+function paint(onClose: () => void): Promise<boolean> {
   Layers.show("provinces", "borders");
 
-  void Controllers.PaintEditor.open({
+  return Controllers.PaintEditor.open({
     title: "Paint Provinces",
     parentDialogId: dialogId,
-    onClose: open,
+    onClose,
+    history: { domains: ["cells.province", "provinces"], layers: ["borders", "provinces", "labels", "emblems"] },
     items: getProvincesData().map(province => ({
       id: province.i,
       name: province.name,
@@ -1493,4 +1499,4 @@ function updateLockStatus(provinceId: number, classList: DOMTokenList): void {
   classList.toggle("icon-lock");
 }
 
-export const ProvincesEditor = { open, showChart };
+export const ProvincesEditor = { open, paint, showChart };

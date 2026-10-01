@@ -2,6 +2,7 @@ import { pointer } from "d3";
 import { refreshEditors } from "@/components/dialog/dialog-helpers";
 import { Layers } from "@/components/layers";
 import { stopMapPlacement, toggleMapPlacement } from "@/components/map-placement";
+import { UndoHistory } from "@/components/undo-history";
 import type { Marker } from "@/generators/markers-generator";
 import { ensureEl, findEl, rn } from "@/utils";
 
@@ -26,22 +27,28 @@ function toggle(baseMarker?: Marker): void {
 
 function addOnClick(event: MouseEvent, baseMarker?: Marker): void {
   const point = pointer(event, event.currentTarget as SVGGElement);
+  if (!addAt(point, baseMarker) || event.shiftKey) return;
+
+  unpressProxyButtons();
+  stopMapPlacement();
+}
+
+/** place a marker of the selected type at a map point; false when the point is off the map */
+function addAt(point: [number, number], baseMarker?: Marker): boolean {
   const cell = Pack.findCell(point[0], point[1]);
-  if (cell === undefined) return;
+  if (cell === undefined) return false;
 
   const selectedType = ensureEl<HTMLSelectElement>("addedMarkerType").value;
   const selectedConfig = Markers.getConfig().find(({ type }) => type === selectedType);
   const template = baseMarker || selectedConfig || { icon: "❓", type: "custom" };
-  const marker = Markers.add({ ...template, x: rn(point[0], 2), y: rn(point[1], 2), cell } as Marker);
-  selectedConfig?.add(marker, cell);
+  UndoHistory.record({ label: "Add marker", domains: ["markers"], layers: ["markers"] }, () => {
+    const marker = Markers.add({ ...template, x: rn(point[0], 2), y: rn(point[1], 2), cell } as Marker);
+    selectedConfig?.add(marker, cell);
+  });
 
   Layers.draw("markers");
   refreshEditors();
-
-  if (!event.shiftKey) {
-    unpressProxyButtons();
-    stopMapPlacement();
-  }
+  return true;
 }
 
 function unpressProxyButtons(): void {
@@ -49,4 +56,4 @@ function unpressProxyButtons(): void {
   document.getElementById("markersAddFromOverview")?.classList.remove("pressed");
 }
 
-export const MarkerCreator = { toggle };
+export const MarkerCreator = { toggle, addAt };
