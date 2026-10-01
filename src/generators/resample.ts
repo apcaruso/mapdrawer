@@ -230,8 +230,13 @@ class Resampler {
     projection: (x: number, y: number) => [number, number],
     scale: number
   ) {
-    const packLandCellsQuadtree = quadtree(this.groupCellsByType(pack).land);
-    const findLandCell = (x: number, y: number) => packLandCellsQuadtree.find(x, y, Infinity)?.[2];
+    // land cells without a burg yet: two burgs that land on one cell are not both lost, the second takes the next free one
+    const freeLandCells = quadtree(this.groupCellsByType(pack).land);
+    const takeFreeLandCell = (x: number, y: number) => {
+      const point = freeLandCells.find(x, y, Infinity);
+      if (point) freeLandCells.remove(point);
+      return point?.[2];
+    };
 
     pack.burgs = parentMap.pack.burgs.map(burg => {
       if (!burg.i || burg.removed) return burg;
@@ -241,10 +246,10 @@ class Resampler {
       if (!this.isInMap(xp, yp)) return { ...burg, removed: true, lock: false };
 
       const closestCell = Pack.findCell(xp, yp, Infinity) as number;
-      const cell = isWater(closestCell, pack) ? (findLandCell(xp, yp) as number) : closestCell;
+      const cell = takeFreeLandCell(xp, yp);
 
-      if (pack.cells.burg[cell]) {
-        WARN && console.warn(`Cell ${cell} already has a burg. Removing burg ${burg.name} (${burg.i})`);
+      if (cell === undefined) {
+        WARN && console.warn(`No free land cell is left. Removing burg ${burg.name} (${burg.i})`);
         return { ...burg, removed: true, lock: false };
       }
 

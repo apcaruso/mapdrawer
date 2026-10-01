@@ -119,6 +119,8 @@ export async function cleanupData(): Promise<void> {
   await clearCache();
 }
 
+const SHOW_RELEASE_NOTES = false; // the fork does not show upstream release notes and community links
+
 function showUpdateWindow(storedVersion: string | null): void {
   localStorage.setItem("version", VERSION);
 
@@ -163,12 +165,14 @@ function announceVersion(): void {
 
   const storedVersion = localStorage.getItem("version");
   if (!storedVersion) {
-    setTimeout(() => showUpdateWindow(null), 6000);
+    if (SHOW_RELEASE_NOTES) setTimeout(() => showUpdateWindow(null), 6000);
+    else localStorage.setItem("version", VERSION);
     return;
   }
 
   if (compareVersions(storedVersion, VERSION, { major: true, minor: true, patch: false }).isOlder) {
-    setTimeout(() => showUpdateWindow(storedVersion), 6000);
+    if (SHOW_RELEASE_NOTES) setTimeout(() => showUpdateWindow(storedVersion), 6000);
+    else localStorage.setItem("version", VERSION);
   } else if (compareVersions(storedVersion, VERSION).isOlder) {
     localStorage.setItem("version", VERSION);
     tip(`Updated to v${VERSION}. Reload the page if you get errors`, true, "success", 6000);

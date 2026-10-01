@@ -18,7 +18,8 @@
 | 0 — Setup e baseline | ✅ | Niente repo GitHub (scelta dell'utente). Baseline in `perf-baseline.json`, sonda in `scripts/perf-probe.mjs` |
 | 1 — Mondo vuoto | ✅ | Vedi sotto |
 | 2 — ToolManager, palette, storia globale | ✅ | Vedi sotto. Barra opzioni contestuale rinviata allo Step 3, ispettore allo Step 6 |
-| 3–9 | da fare | |
+| 3 — Terreno live | ✅ | Vedi sotto |
+| 4–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -83,6 +84,60 @@ Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, 
 - Su una mappa vuota la pittura degli stati offre solo "Neutrals": creare stati al volo è parte dello Step 5.
 - Il tipo di marker è quello già scelto nel Markers Overview.
 
+### Cosa fa lo Step 3
+
+- **`src/generators/terrain.ts` (`Terrain`)**: cambia le altezze sul posto, sul grafo stabile.
+  - Le celle "ancorate" non possono finire sott'acqua: città e centri di stati, province, culture e religioni.
+  - Ricostruisce isole, laghi e oceani conservandone nomi e note. Ogni nuova feature riceve un nome dal proprio seme.
+  - Rimappa gli id delle feature in città (`feature`, `port`) e rotte.
+  - Ricalcola temperatura e precipitazioni, e i biomi delle **sole celle toccate**: i biomi dipinti altrove restano.
+  - Toglie stato, provincia, cultura, religione e popolazione alla terra sommersa.
+  - `resync()` ricostruisce i dati derivati dopo un Annulla.
+- **`src/controllers/terrain-tools.ts` (`TerrainTools`)**: gli strumenti.
+
+  | Tasto | Strumento | Cosa fa |
+  | --- | --- | --- |
+  | B | Pennello terra | Trasforma l'acqua in pianura con una leggera variazione d'altezza |
+  | E | Pennello mare | Sommerge la terra; dentro un continente crea laghi |
+  | L | Lazo | Riempie di terra la forma chiusa disegnata; con Alt, o scegliendo Sea, la scava in mare |
+  | H | Alza | Crea colline e montagne |
+  | D | Abbassa | Abbassa il terreno |
+  | F | Leviga | Ammorbidisce i pendii |
+
+  - Durante il tratto c'è un'anteprima colorata per altezza. A fine tratto si ha un commit e **un passo di Annulla**.
+  - Il bordo dei pennelli terra e mare ha un'irregolarità regolabile (rumore legato alle coordinate, quindi tratti
+    vicini combaciano).
+  - Alza, Abbassa e Leviga accendono il layer heightmap.
+- **`src/components/tools/tool-options.ts`**: la barra opzioni in alto (dimensione, forza, irregolarità, terra/mare
+  per il lazo). I tasti `[` `]` `+` `−` e Shift+trascina cambiano la dimensione del pennello.
+- **Mappe casuali**: al primo strumento di terreno compare la proposta di conversione.
+  - La conversione è un ricampionamento identico (`Resample.process`) sul grafo stabile, ad almeno 20k celle.
+  - Stati, città, rotte, fiumi e il resto vengono portati sopra.
+  - Non è annullabile, e il dialog lo dice.
+- **Fix al ricampionamento**, utile anche per Transform e Submap: due città che finiscono nella stessa cella non vengono
+  più cancellate, la seconda va nella cella di terra libera più vicina. Su una mappa casuale di prova si perdevano
+  26 città su 736; ora nessuna.
+- Il popup di aggiornamento dell'originale (novità, Discord, Patreon) è disattivato. Palette e barra opzioni si
+  nascondono durante lo splash di caricamento.
+- **Test**: `terrain.test.ts` (6 casi).
+
+**Misure dello Step 3** (prova in Chromium headless: continente, 2 isole, lago, crinale e isola col lazo in 13 passi,
+13 Annulla fino all'oceano vuoto, 13 Ripeti fino alla mappa identica)
+
+| Celle | Commit di un tratto, frame incluso |
+| --- | --- |
+| 30k | 32–100 ms |
+| 50k | 47–125 ms |
+
+| Altro | Valore |
+| --- | --- |
+| Conversione di una mappa casuale da 10k | ~1,4 s |
+
+**Limiti noti dello Step 3**
+- I fiumi non seguono il terreno: un fiume su terra sommersa resta disegnato. Fa parte dello Step 4.
+- Le icone di rilievo non si rigenerano: Step 4.
+- Il crinale con Alza si costruisce a passate; manca uno strumento "catena montuosa" lungo una linea.
+
 ### Misure dopo lo Step 1
 
 Dev server, Chromium headless.
@@ -109,12 +164,8 @@ I budget dello Step 3 sono già rispettati.
 - **Test e2e non eseguiti**, come chiede la regola del progetto.
   - `controller-launchers` e `states` sono stati adattati, perché cliccavano pulsanti ora nascosti.
   - Le spec che usano la mappa di `/` senza `?seed=` ora ricevono la mappa vuota: alcune andranno adattate.
-- **Mappe casuali e grafo stabile.** Le mappe casuali usano ancora il grafo classico.
-  Gli strumenti dello Step 3 richiedono il grafo stabile, quindi va scelto se convertire una mappa alla prima modifica
-  del terreno (via il percorso *Risk*) oppure generare stabili anche le mappe casuali.
 - Su una mappa vuota il campo di distanza `cells.t` vale 0 ovunque, perché non c'è costa. Si sistema da solo al primo markup con terra.
-- Fino allo Step 3 la terra si disegna solo con il vecchio editor heightmap. In modalità *Erase*,
-  all'uscita rigenera ancora culture e stati a caso.
+- Il vecchio editor heightmap resta nella tab Tools. In modalità *Erase*, all'uscita rigenera ancora culture e stati a caso.
 
 ---
 

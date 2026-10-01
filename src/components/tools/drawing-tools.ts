@@ -4,6 +4,7 @@ import { type LayerId, Layers } from "@/components/layers";
 import { SELECT_TOOL, type Tool } from "@/components/tools/tool-manager";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
+import type { TerrainMode } from "@/controllers/terrain-tools";
 import type { Point } from "@/types/global";
 import { findEl } from "@/utils";
 
@@ -22,6 +23,18 @@ function paintTool(spec: ToolSpec, paint: (end: () => void) => Promise<boolean>)
     },
     deactivate: () => Controllers.PaintEditor.apply(),
     undo: () => Controllers.PaintEditor.undoStroke()
+  };
+}
+
+/** shape the terrain; a map on the classic graph is offered a conversion first, and declining it ends the tool */
+function terrainTool(spec: Omit<ToolSpec, "group">, mode: TerrainMode): Tool {
+  return {
+    ...spec,
+    group: "terrain",
+    activate: async end => {
+      if (!(await Controllers.TerrainTools.start(mode))) end();
+    },
+    deactivate: () => Controllers.TerrainTools.stop()
   };
 }
 
@@ -66,6 +79,42 @@ export const DRAWING_TOOLS: Tool[] = [
     hint: "click a map element to edit it",
     activate: applyDefaultViewboxEvents
   },
+  terrainTool(
+    { id: "land", name: "Land brush", icon: icon("brush"), key: "KeyB", hint: "drag to raise land from the sea" },
+    "land"
+  ),
+  terrainTool(
+    {
+      id: "sea",
+      name: "Sea brush",
+      icon: icon("eraser"),
+      key: "KeyE",
+      hint: "drag to sink land into the sea; inside land it makes lakes"
+    },
+    "sea"
+  ),
+  terrainTool(
+    {
+      id: "lasso",
+      name: "Lasso",
+      icon: icon("draw-polygon"),
+      key: "KeyL",
+      hint: "draw a closed shape to fill it with land; hold Alt to carve sea instead"
+    },
+    "lasso"
+  ),
+  terrainTool(
+    { id: "raise", name: "Raise", icon: icon("mountain"), key: "KeyH", hint: "drag to build hills and mountains" },
+    "raise"
+  ),
+  terrainTool(
+    { id: "lower", name: "Lower", icon: icon("level-down"), key: "KeyD", hint: "drag to lower the ground" },
+    "lower"
+  ),
+  terrainTool(
+    { id: "smooth", name: "Smooth", icon: icon("smooth"), key: "KeyF", hint: "drag to soften slopes" },
+    "smooth"
+  ),
   paintTool(
     {
       id: "states",

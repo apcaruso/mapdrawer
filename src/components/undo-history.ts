@@ -42,6 +42,7 @@ export interface HistoryAction {
   label: string;
   domains: readonly HistoryDomain[];
   layers: readonly LayerId[]; // redrawn after the step is undone or redone
+  after?: () => void; // rebuilds what derives from the restored data, before the redraw
 }
 
 interface CellDiff {
@@ -60,6 +61,7 @@ interface JsonDiff {
 interface Entry {
   label: string;
   layers: readonly LayerId[];
+  after?: () => void;
   cells: CellDiff[];
   json: JsonDiff[];
   bytes: number;
@@ -86,7 +88,7 @@ function writeJson(key: JsonKey, value: string): void {
 }
 
 /** Run an action and remember what it changed, so it can be undone */
-function record<T>({ label, domains, layers }: HistoryAction, action: () => T): T {
+function record<T>({ label, domains, layers, after }: HistoryAction, action: () => T): T {
   const cellsBefore = domains
     .filter(domain => !isJsonKey(domain) && pack.cells[cellKey(domain)])
     .map(domain => {
@@ -97,7 +99,7 @@ function record<T>({ label, domains, layers }: HistoryAction, action: () => T): 
 
   const result = action();
 
-  const entry: Entry = { label, layers, cells: [], json: [], bytes: 0 };
+  const entry: Entry = { label, layers, after, cells: [], json: [], bytes: 0 };
   for (const { key, values } of cellsBefore) {
     const current = cellArray(key);
     if (current.length !== values.length) {
@@ -155,6 +157,7 @@ function restore(entry: Entry, side: "before" | "after"): void {
   for (const diff of entry.json) writeJson(diff.key, diff[side]);
 
   if (entry.json.some(diff => diff.key === "routes" || diff.key === "cells.routes")) Routes.sync();
+  entry.after?.();
   Layers.draw(...entry.layers);
   refreshEditors();
 }
