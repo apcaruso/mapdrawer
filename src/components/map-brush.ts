@@ -30,7 +30,7 @@ interface MapBrushOptions {
   /** the pointer moved, hovering or dragging; called at most once per animation frame */
   onMove?: (point: Point, radius: number) => void;
   /** a click that did not turn into a stroke */
-  onClick?: (point: Point) => void;
+  onClick?: (point: Point, event: MouseEvent) => void;
   onResize?: (radius: number) => void;
 }
 
@@ -93,7 +93,7 @@ export class MapBrush {
 
     // a brush owns the clicks over the map: either the tool handles them or nothing does
     const { onClick } = this.options;
-    if (onClick) viewbox.on("click", (event: MouseEvent) => onClick(this.at(event)));
+    if (onClick) viewbox.on("click", (event: MouseEvent) => onClick(this.at(event), event));
     else viewbox.on("click", null);
   }
 

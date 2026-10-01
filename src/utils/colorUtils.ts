@@ -2,6 +2,7 @@ import {
   color,
   interpolate,
   interpolateRainbow,
+  lab,
   type RGBColor,
   range,
   scaleSequential,
@@ -67,6 +68,23 @@ export const getColors = (count: number): string[] => {
 export const getRandomColor = (): string => {
   const colorFromRainbow: RGBColor = color(scaleSequential(interpolateRainbow)(Math.random())) as RGBColor;
   return colorFromRainbow.formatHex();
+};
+
+/** A pastel far from all the given colors: the palette's farthest while it has a clearly different one, else a far random pastel */
+export const getDistinctColor = (existing: readonly (string | undefined)[]): string => {
+  const DISTINCT = 25; // Lab distance at which two map colors stop being confused
+  const used = existing.filter((c): c is string => c?.[0] === "#").map(c => lab(c));
+  const distance = (candidate: string) => {
+    const { l, a, b } = lab(candidate);
+    return Math.min(Infinity, ...used.map(other => Math.hypot(other.l - l, other.a - a, other.b - b)));
+  };
+  const farthest = (candidates: string[]) =>
+    candidates.reduce((best, candidate) => (distance(candidate) > distance(best) ? candidate : best));
+
+  const fromPalette = farthest(C_12);
+  if (distance(fromPalette) >= DISTINCT) return fromPalette;
+  const pastel = () => color(interpolate(getRandomColor(), "#ffffff")(0.45))!.formatHex();
+  return farthest([fromPalette, ...range(24).map(pastel)]);
 };
 
 /**

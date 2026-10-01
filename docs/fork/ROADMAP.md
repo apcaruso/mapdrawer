@@ -20,7 +20,8 @@
 | 2 — ToolManager, palette, storia globale | ✅ | Vedi sotto. Barra opzioni contestuale rinviata allo Step 3, ispettore allo Step 6 |
 | 3 — Terreno live | ✅ | Vedi sotto |
 | 4 — Mappa fisica | ✅ | Vedi sotto |
-| 5–9 | da fare | |
+| 5 — Mappa politica | ✅ | Vedi sotto |
+| 6–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -82,7 +83,7 @@ Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, 
 **Limiti noti dello Step 2**
 - Le modifiche fatte negli editor (rinomina, cancella, rigenera) non entrano ancora nella storia. Dopo una di queste
   modifiche, Annulla rifiuta i passi precedenti invece di romperli.
-- Su una mappa vuota la pittura degli stati offre solo "Neutrals": creare stati al volo è parte dello Step 5.
+- (Risolto nello Step 5: su una mappa vuota gli stati si creano al volo dal pannello di pittura.)
 - Il tipo di marker è quello già scelto nel Markers Overview.
 
 ### Cosa fa lo Step 3
@@ -178,6 +179,49 @@ Tempi di commit: catena montuosa 65 ms, fiume 15 ms.
 - Le icone piazzate a mano con l'editor del rilievo non entrano nella storia.
 - I biomi "automatici da clima" su un'area sono rinviati agli assistenti (Step 8); i biomi si possono già dipingere.
 - I ghiacci restano nell'editor esistente, senza uno strumento nella palette.
+
+### Cosa fa lo Step 5
+
+- **Pittura live**: per stati, province, culture, religioni e biomi ogni tratto viene applicato quando finisce ed è
+  **un passo di Annulla**. Confini, etichette e statistiche si aggiornano a fine tratto. Non c'è più Apply/Cancel, solo
+  Done.
+- **Secchiello (Fill)**: un clic riempie l'area contigua dello stesso colore sulla stessa terra, per esempio un'isola
+  intera. Alt+clic fa lo stesso con il pennello.
+- **"+" (nuovo)** nel pannello: si clicca sulla mappa e si continua a dipingere con il nuovo elemento.
+  - **stato**: la capitale è un borgo esistente o uno nuovo;
+  - **provincia**: su terra di uno stato;
+  - **cultura** e **religione**: il centro.
+  - La creazione riusa la logica degli editor, estratta in `createStateAt` e `createProvinceAt`, oppure i generatori
+    (`Cultures.add`, `Religions.add`). Ogni creazione è un passo di Annulla.
+- **Rinomina inline** dell'elemento selezionato (per uno stato è il nome breve: la forma si aggiunge da sola).
+- **Espandi**: ogni regione cresce nella terra libera che raggiunge prima, per la via più economica (bioma, rilievo).
+  - Gli stati vanno nella terra neutrale, le culture nelle wildlands, le religioni nella terra senza religione, le
+    province nella terra del proprio stato.
+  - Non attraversa il mare. L'algoritmo è un Dijkstra multi-sorgente in `src/generators/region-growth.ts`.
+- **Colori distinti**: i nuovi stati, culture e religioni ricevono il pastello della tavolozza più lontano da quelli in
+  uso (`getDistinctColor`).
+- **PaintEditor** ha nuove opzioni: `live`, `fill`, `create`, `rename`, `actions`. Senza di esse si comporta come
+  prima, e i suoi 16 test restano validi.
+- **Test**: `region-growth.test.ts` (3) e `colorUtils.test.ts` (3).
+
+**Prova nel browser** su mappa vuota (continente e isola, 3 stati creati col "+", un tratto ciascuno, isola col
+secchiello, poi Espandi):
+
+| Azione | Tempo |
+| --- | --- |
+| Creare uno stato | 45–68 ms |
+| Un tratto, confini ed etichette compresi | 31–48 ms |
+| Secchiello sull'isola | 30 ms |
+| Espandi su tutto il continente | ~135 ms |
+
+- Nessuna cella neutrale rimasta.
+- Rinomina e Annulla/Ripeti funzionano.
+- Nessun errore.
+
+**Limiti noti dello Step 5**
+- Lo stato si crea dalla capitale; non c'è uno stato "senza capitale".
+- "Genera province per uno stato" resta agli assistenti dello Step 8.
+- La pittura delle zone resta nel vecchio modo (Apply/Cancel).
 
 ### Misure dopo lo Step 1
 

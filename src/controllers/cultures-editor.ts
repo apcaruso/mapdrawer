@@ -15,15 +15,19 @@ import { Layers } from "@/components/layers";
 import { Notes } from "@/components/notes";
 import type { FillBoxElement } from "@/components/shared/fill-box";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
 import { CULTURE_TYPES, type Culture } from "@/generators/cultures-generator";
 import { Emblems } from "@/generators/emblems-generator";
+import { RegionGrowth } from "@/generators/region-growth";
 import { clearLegend, drawLegend, hasLegend } from "@/renderers/draw-legend";
 import { EmblemRenderer } from "@/renderers/emblems/renderer";
 import { highlightElement } from "@/renderers/overlays/highlight";
 import type { Emblem } from "@/types/emblems";
+import type { Point } from "@/types/global";
 import { downloadFile, getArea, getAreaUnit, getFileName } from "@/utils";
+import { getDistinctColor } from "@/utils/colorUtils";
 import {
   abbreviate,
   capitalize,
@@ -907,20 +911,76 @@ function openPaintEditor(): void {
 /** paint cultures on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
 function paint(onClose: () => void): Promise<boolean> {
   Layers.show("cultures");
+  const paintItem = (culture: Culture) => ({ id: culture.i, name: culture.name, color: culture.color || "#ffffff" });
+  const record = <T>(label: string, change: () => T): T =>
+    UndoHistory.record({ label, domains: ["cells.culture", "cultures", "burgs"], layers: ["cultures"] }, change);
 
   return Controllers.PaintEditor.open({
     title: "Paint Cultures",
     parentDialogId: dialogId,
     onClose,
     history: { domains: ["cells.culture", "burgs"], layers: ["cultures"] },
-    items: pack.cultures
-      .filter(culture => !culture.removed)
-      .map(culture => ({ id: culture.i, name: culture.name, color: culture.color || "#ffffff" })),
+    items: pack.cultures.filter(culture => !culture.removed).map(paintItem),
+    live: true,
+    fill: true,
+    create: {
+      label: "culture",
+      hint: "click on land to place its center",
+      at: point => {
+        const cultureId = record("New culture", () => createCultureAt(point));
+        return cultureId ? paintItem(pack.cultures[cultureId]) : undefined;
+      }
+    },
+    rename: (cultureId, name) =>
+      record("Rename culture", () => {
+        pack.cultures[cultureId].name = name;
+        if (document.getElementById(dialogId)) refreshCulturesEditor();
+      }),
+    actions: [
+      {
+        label: "Expand",
+        tip: "Grow every culture into the wildlands it reaches first over land",
+        run: () => record("Expand cultures", expandCulturesToWildlands)
+      }
+    ],
     dontOverrideControl: true,
     getValue: cell => pack.cells.culture[cell],
     filterCell: cell => isLand(cell, pack),
     onApply: applyCulturePaint
   });
+}
+
+/** a new culture centered at the point, holding its center cell. Returns its id */
+function createCultureAt([x, y]: Point): number | undefined {
+  const { cells, cultures, burgs } = pack;
+  const center = Pack.findCell(x, y)!;
+  if (cells.h[center] < 20) {
+    tip("You cannot place culture center into the water. Please click on a land cell", false, "error");
+    return undefined;
+  }
+  if (cultures.some(culture => !culture.removed && culture.center === center)) {
+    tip("This cell is already a culture center. Please select a different cell", false, "error");
+    return undefined;
+  }
+
+  const cultureId = cultures.length;
+  Cultures.add(center);
+  cultures[cultureId].color = getDistinctColor(
+    cultures.filter(culture => culture.i && !culture.removed).map(c => c.color)
+  );
+  cells.culture[center] = cultureId;
+  if (cells.burg[center]) burgs[cells.burg[center]].culture = cultureId;
+  Layers.draw("cultures");
+  return cultureId;
+}
+
+function expandCulturesToWildlands(): void {
+  const { cells, burgs } = pack;
+  const claimed = RegionGrowth.expand(cells.culture);
+  if (!claimed.length) return void tip("There are no wildlands a culture can reach over land", false, "warn");
+  for (const cell of claimed) if (cells.burg[cell]) burgs[cells.burg[cell]].culture = cells.culture[cell];
+  Layers.draw("cultures");
+  if (document.getElementById(dialogId)) refreshCulturesEditor();
 }
 
 function applyCulturePaint(changes: ReadonlyMap<number, number>): void {

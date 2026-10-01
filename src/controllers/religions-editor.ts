@@ -14,12 +14,16 @@ import {
 import { Layers } from "@/components/layers";
 import { Notes } from "@/components/notes";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
+import { RegionGrowth } from "@/generators/region-growth";
 import type { Religion } from "@/generators/religions-generator";
 import { clearLegend, drawLegend, hasLegend } from "@/renderers/draw-legend";
 import { highlightElement } from "@/renderers/overlays/highlight";
+import type { Point } from "@/types/global";
 import { downloadFile, getArea, getAreaUnit, getFileName } from "@/utils";
+import { getDistinctColor } from "@/utils/colorUtils";
 import { abbreviate, debounce, ensureEl, getPointer, isLand, parseTransform, rn, si } from "../utils";
 
 const dialogId = "religionsEditor" as const;
@@ -848,20 +852,77 @@ function openPaintEditor(): void {
 /** paint religions on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
 function paint(onClose: () => void): Promise<boolean> {
   Layers.show("religions");
+  const paintItem = (religion: Religion) => ({
+    id: religion.i,
+    name: religion.name,
+    color: religion.color || "#ffffff"
+  });
+  const record = <T>(label: string, change: () => T): T =>
+    UndoHistory.record({ label, domains: ["cells.religion", "religions"], layers: ["religions"] }, change);
 
   return Controllers.PaintEditor.open({
     title: "Paint Religions",
     parentDialogId: dialogId,
     onClose,
     history: { domains: ["cells.religion"], layers: ["religions"] },
-    items: pack.religions
-      .filter(religion => !religion.removed && (!religion.i || religion.cells))
-      .map(religion => ({ id: religion.i, name: religion.name, color: religion.color || "#ffffff" })),
+    items: pack.religions.filter(religion => !religion.removed && (!religion.i || religion.cells)).map(paintItem),
+    live: true,
+    fill: true,
+    create: {
+      label: "religion",
+      hint: "click on land to place its center",
+      at: point => {
+        const religionId = record("New religion", () => createReligionAt(point));
+        return religionId ? paintItem(pack.religions[religionId]) : undefined;
+      }
+    },
+    rename: (religionId, name) =>
+      record("Rename religion", () => {
+        pack.religions[religionId].name = name;
+        if (document.getElementById(dialogId)) refreshReligionsEditor();
+      }),
+    actions: [
+      {
+        label: "Expand",
+        tip: "Grow every religion into the land without one it reaches first",
+        run: () => record("Expand religions", expandReligionsToUnclaimedLand)
+      }
+    ],
     dontOverrideControl: true,
     getValue: cell => pack.cells.religion[cell],
     filterCell: cell => isLand(cell, pack),
     onApply: applyReligionPaint
   });
+}
+
+/** a new religion centered at the point, holding its center cell. Returns its id */
+function createReligionAt([x, y]: Point): number | undefined {
+  const { cells, religions } = pack;
+  const center = Pack.findCell(x, y)!;
+  if (cells.h[center] < 20) {
+    tip("You cannot place religion center into the water. Please click on a land cell", false, "error");
+    return undefined;
+  }
+  if (religions.some(religion => !religion.removed && religion.center === center)) {
+    tip("This cell is already a religion center. Please select a different cell", false, "error");
+    return undefined;
+  }
+
+  const religionId = religions.length;
+  Religions.add(center);
+  religions[religionId].color = getDistinctColor(
+    religions.filter(religion => religion.i && !religion.removed).map(r => r.color)
+  );
+  cells.religion[center] = religionId;
+  Layers.draw("religions");
+  return religionId;
+}
+
+function expandReligionsToUnclaimedLand(): void {
+  const claimed = RegionGrowth.expand(pack.cells.religion);
+  if (!claimed.length) return void tip("There is no land without religion a religion can reach", false, "warn");
+  Layers.draw("religions");
+  if (document.getElementById(dialogId)) refreshReligionsEditor();
 }
 
 function applyReligionPaint(changes: ReadonlyMap<number, number>): void {

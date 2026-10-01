@@ -490,6 +490,8 @@ function paint(onClose: () => void): Promise<boolean> {
     parentDialogId: dialogId,
     onClose,
     history: { domains: ["cells.biome"], layers: ["biomes"] },
+    live: true,
+    fill: true,
     items: pack.biomes
       .filter(biome => biome.i && !biome.removed)
       .map(biome => ({ id: biome.i, name: biome.name, color: biome.color })),

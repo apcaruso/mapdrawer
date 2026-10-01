@@ -16,14 +16,17 @@ import { Layers } from "@/components/layers";
 import { Notes } from "@/components/notes";
 import type { FillBoxElement } from "@/components/shared/fill-box";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { type HistoryAction, UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
 import { Emblems } from "@/generators/emblems-generator";
 import type { Province } from "@/generators/provinces-generator";
+import { RegionGrowth } from "@/generators/region-growth";
 import { redrawEmblem, redrawEmblems, removeEmblem } from "@/renderers/draw-emblems";
 import { EmblemRenderer } from "@/renderers/emblems/renderer";
 import { fog, unfog } from "@/renderers/overlays/fogging";
 import { highlightElement, highlightOutline } from "@/renderers/overlays/highlight";
+import type { Point } from "@/types/global";
 import { applyOption, downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
 import { ensureEl, findEl, getPointer, getRandomColor, isLand, P, rand, rn, si, unique } from "../utils";
 
@@ -1091,19 +1094,51 @@ function openPaintEditor(): void {
 }
 
 /** paint provinces on the map, from this editor or as a standalone tool; `onClose` runs when painting ends */
+const PROVINCE_HISTORY: Omit<HistoryAction, "label"> = {
+  domains: ["cells.province", "provinces", "states"],
+  layers: ["borders", "provinces", "labels", "emblems"]
+};
+
 function paint(onClose: () => void): Promise<boolean> {
   Layers.show("provinces", "borders");
+  const paintItem = (province: Province) => ({
+    id: province.i,
+    name: province.name,
+    color: province.color || "#ffffff"
+  });
+  const record = <T>(label: string, change: () => T): T => UndoHistory.record({ label, ...PROVINCE_HISTORY }, change);
 
   return Controllers.PaintEditor.open({
     title: "Paint Provinces",
     parentDialogId: dialogId,
     onClose,
-    history: { domains: ["cells.province", "provinces"], layers: ["borders", "provinces", "labels", "emblems"] },
-    items: getProvincesData().map(province => ({
-      id: province.i,
-      name: province.name,
-      color: province.color || "#ffffff"
-    })),
+    history: PROVINCE_HISTORY,
+    items: getProvincesData().map(paintItem),
+    live: true,
+    fill: true,
+    create: {
+      label: "province",
+      hint: "click on a state's land to place its center",
+      at: point => {
+        const provinceId = record("New province", () => createProvinceAt(point));
+        return provinceId ? paintItem(pack.provinces[provinceId]) : undefined;
+      }
+    },
+    rename: (provinceId, name) =>
+      record("Rename province", () => {
+        const province = pack.provinces[provinceId];
+        province.name = name;
+        province.fullName = `${name} ${province.formName}`;
+        Layers.draw("labels");
+        if (document.getElementById(dialogId)) refreshProvincesEditor();
+      }),
+    actions: [
+      {
+        label: "Expand",
+        tip: "Grow every province into the land of its state that no province holds yet",
+        run: () => record("Expand provinces", expandProvincesWithinStates)
+      }
+    ],
     getValue: cell => pack.cells.province[cell],
     filterCell: (cell, currentProvince, nextProvince) => {
       if (!isLand(cell, pack) || !pack.cells.state[cell]) return false;
@@ -1115,6 +1150,19 @@ function paint(onClose: () => void): Promise<boolean> {
     dontOverrideControl: true,
     onApply: applyProvincePaint
   });
+}
+
+function expandProvincesWithinStates(): void {
+  const { cells, provinces } = pack;
+  const claimed = RegionGrowth.expand(
+    cells.province,
+    (cell, provinceId) => cells.state[cell] === provinces[provinceId].state
+  );
+  if (!claimed.length) return void tip("There is no state land without province a province can reach", false, "warn");
+  Provinces.getPoles();
+  collectStatistics();
+  Layers.draw("borders", "provinces", "labels");
+  if (document.getElementById(dialogId)) refreshProvincesEditor();
 }
 
 function applyProvincePaint(changes: ReadonlyMap<number, number>): void {
@@ -1145,27 +1193,36 @@ function enterAddProvinceMode(this: HTMLElement): void {
 }
 
 function addProvince(this: SVGElement, event: any): void {
+  const provinceId = createProvinceAt(getPointer(event, this) as Point);
+  if (!provinceId) return;
+  if (event.shiftKey === false) exitAddProvinceMode();
+
+  filterState.stateId = pack.provinces[provinceId].state;
+  dialogState.set(dialogId, "filters", filterState);
+  ensureEl<HTMLSelectElement>("provincesFilterState").value = String(filterState.stateId);
+  provincesTable.reset();
+}
+
+/** a new province of the state at the point, centered there with the cells around. Returns its id */
+function createProvinceAt(point: Point): number | undefined {
   const { cells, provinces } = pack;
-  const point = getPointer(event, this);
   const center = Pack.findCell(point[0], point[1])!;
   if (cells.h[center] < 20) {
     tip("You cannot place province into the water. Please click on a land cell", false, "error");
-    return;
+    return undefined;
   }
 
   const oldProvince = cells.province[center];
   if (oldProvince && provinces[oldProvince].center === center) {
     tip("The cell is already a center of a different province. Select other cell", false, "error");
-    return;
+    return undefined;
   }
 
   const state = cells.state[center];
   if (!state) {
     tip("You cannot create a province in neutral lands. Please assign this land to a state first", false, "error");
-    return;
+    return undefined;
   }
-
-  if (event.shiftKey === false) exitAddProvinceMode();
 
   const province = provinces.length;
   pack.states[state].provinces!.push(province);
@@ -1199,10 +1256,7 @@ function addProvince(this: SVGElement, event: any): void {
   Layers.draw("labels");
 
   collectStatistics();
-  filterState.stateId = state;
-  dialogState.set(dialogId, "filters", filterState);
-  ensureEl<HTMLSelectElement>("provincesFilterState").value = String(filterState.stateId);
-  provincesTable.reset();
+  return province;
 }
 
 function exitAddProvinceMode(): void {

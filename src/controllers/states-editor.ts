@@ -15,17 +15,21 @@ import { Layers } from "@/components/layers";
 import { Notes } from "@/components/notes";
 import type { FillBoxElement } from "@/components/shared/fill-box";
 import { clearMainTip, tip } from "@/components/tooltips";
+import { type HistoryAction, UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
 import { Emblems } from "@/generators/emblems-generator";
 import type { Province } from "@/generators/provinces-generator";
+import { RegionGrowth } from "@/generators/region-growth";
 import type { State } from "@/generators/states-generator";
 import { redrawEmblem, redrawEmblems, removeEmblem } from "@/renderers/draw-emblems";
 import { clearLegend, drawLegend, hasLegend } from "@/renderers/draw-legend";
 import { EmblemRenderer } from "@/renderers/emblems/renderer";
 import { fog, unfog } from "@/renderers/overlays/fogging";
 import { highlightElement, highlightOutline } from "@/renderers/overlays/highlight";
+import type { Point } from "@/types/global";
 import { applyOption, downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
+import { getDistinctColor } from "@/utils/colorUtils";
 import {
   ensureEl,
   findEl,
@@ -33,7 +37,6 @@ import {
   getAdjective,
   getMixedColor,
   getPointer,
-  getRandomColor,
   isLand,
   P,
   ra,
@@ -1251,23 +1254,93 @@ function openPaintEditor(): void {
 function paint(onClose: () => void): Promise<boolean> {
   Layers.show("states");
   const adjustLabels = findEl<HTMLInputElement>("adjustLabels")?.checked ?? true;
+  const paintItem = (state: State) => ({ id: state.i, name: state.name, color: state.color || "#ffffff" });
 
   return Controllers.PaintEditor.open({
     title: "Paint States",
     parentDialogId: dialogId,
     onClose,
-    history: {
-      domains: ["cells.state", "cells.province", "states", "provinces", "burgs"],
-      layers: ["states", "borders", "provinces", "labels", "burgIcons", "emblems"]
+    history: { domains: STATE_DOMAINS, layers: STATE_LAYERS },
+    items: pack.states.filter(state => !state.removed).map(paintItem),
+    live: true,
+    fill: true,
+    create: {
+      label: "state",
+      hint: "click on land to place its capital: an existing burg or a new one",
+      at: point => {
+        const stateId = recordStateChange("New state", () => createStateAt(point));
+        return stateId ? paintItem(pack.states[stateId]) : undefined;
+      }
     },
-    items: pack.states
-      .filter(state => !state.removed)
-      .map(state => ({ id: state.i, name: state.name, color: state.color || "#ffffff" })),
+    rename: (stateId, name) => recordStateChange("Rename state", () => renameState(stateId, name)),
+    renameTip: "The short name of the state: its form, such as Kingdom of, is added to it",
+    actions: [
+      {
+        label: "Expand",
+        tip: "Grow every state into the land no state holds yet, along the cheapest ground",
+        run: () => recordStateChange("Expand states", expandStatesToUnclaimedLand)
+      }
+    ],
     dontOverrideControl: true,
     getValue: cell => pack.cells.state[cell],
     filterCell: (cell, currentState) => isLand(cell, pack) && cell !== pack.states[currentState].center,
     onApply: changes => applyStatesPaint(changes, adjustLabels)
   });
+}
+
+const STATE_DOMAINS: HistoryAction["domains"] = [
+  "cells.state",
+  "cells.province",
+  "cells.burg",
+  "cells.routes",
+  "states",
+  "provinces",
+  "burgs",
+  "routes"
+];
+const STATE_LAYERS: HistoryAction["layers"] = [
+  "states",
+  "borders",
+  "provinces",
+  "labels",
+  "burgIcons",
+  "routes",
+  "emblems"
+];
+
+/** run a change to states as one undo step */
+function recordStateChange<T>(label: string, change: () => T): T {
+  return UndoHistory.record({ label, domains: STATE_DOMAINS, layers: STATE_LAYERS }, change);
+}
+
+function renameState(stateId: number, name: string): void {
+  const state = pack.states[stateId];
+  state.name = name;
+  state.fullName = States.getFullName(state);
+  Layers.draw("labels");
+  if (document.getElementById(dialogId)) refreshStatesEditor();
+}
+
+/** every state grows into the neutral land it reaches first; their labels are fitted anew */
+function expandStatesToUnclaimedLand(): void {
+  const { cells, states, burgs } = pack;
+  const claimed = RegionGrowth.expand(cells.state);
+  if (!claimed.length) {
+    tip("There is no neutral land a state can reach over land", false, "warn");
+    return;
+  }
+
+  for (const cell of claimed) {
+    const burg = burgs[cells.burg[cell]];
+    if (cells.burg[cell] && burg) burg.state = cells.state[cell];
+  }
+  for (const stateId of new Set(claimed.map(cell => cells.state[cell]))) delete states[stateId].label;
+
+  States.getPoles();
+  States.findNeighbors();
+  States.collectStatistics();
+  Layers.draw("states", "borders", "labels", "burgIcons");
+  if (document.getElementById(dialogId)) refreshStatesEditor();
 }
 
 function applyStatesPaint(changes: ReadonlyMap<number, number>, adjustLabels: boolean): void {
@@ -1471,18 +1544,23 @@ function enterAddStateMode(this: HTMLElement): void {
 }
 
 function addState(this: SVGElement, event: MouseEvent): void {
+  const stateId = createStateAt(getPointer(event, this) as Point);
+  if (stateId && event.shiftKey === false) exitAddStateMode();
+}
+
+/** a new state with its capital at the point: an existing burg there, or a new one. Returns its id */
+function createStateAt(point: Point): number | undefined {
   const { cells, states, burgs } = pack as any;
-  const point = getPointer(event, this);
   const center = Pack.findCell(point[0], point[1])!;
   if (cells.h[center] < 20) {
     tip("You cannot place state into the water. Please click on a land cell", false, "error");
-    return;
+    return undefined;
   }
 
   let burgId = cells.burg[center];
   if (burgId && burgs[burgId].capital) {
     tip("Existing capital cannot be selected as a new state capital! Select other cell", false, "error");
-    return;
+    return undefined;
   }
 
   if (!burgId) {
@@ -1499,12 +1577,12 @@ function addState(this: SVGElement, event: MouseEvent): void {
   Burgs.changeGroup(burgs[burgId], null);
   Layers.draw("burgIcons", "labels", "routes");
 
-  if (event.shiftKey === false) exitAddStateMode();
-
   const culture = cells.culture[center];
   const basename = center % 5 === 0 ? burgs[burgId].name : Names.getCulture(culture);
   const name = Names.getState(basename, culture);
-  const color = getRandomColor();
+  const color = getDistinctColor(
+    states.filter((state: State) => state.i && !state.removed).map((state: State) => state.color)
+  );
 
   // generate emblem
   const cultureType = pack.cultures[culture].type;
@@ -1533,10 +1611,12 @@ function addState(this: SVGElement, event: MouseEvent): void {
     return relations;
   });
   diplomacy.push("x");
-  states[0].diplomacy.push([
-    `Independance declaration`,
-    `${name} declared its independance from ${states[oldState].name}`
-  ]);
+  if (oldState) {
+    states[0].diplomacy.push([
+      `Independance declaration`,
+      `${name} declared its independance from ${states[oldState].name}`
+    ]);
+  }
 
   cells.state[center] = newState;
   cells.province[center] = 0;
@@ -1569,7 +1649,8 @@ function addState(this: SVGElement, event: MouseEvent): void {
   Layers.hide("provinces");
   Layers.draw("states", "borders");
 
-  statesTable.refresh();
+  if (document.getElementById(dialogId)) statesTable.refresh();
+  return newState;
 }
 
 function exitAddStateMode(): void {
