@@ -1252,7 +1252,7 @@ class CulturesGenerator {
       urban: 0,
       origins: [pack.cells.culture[center]],
       code,
-      shield: Emblems.shape === "random" ? this.getRandomShield() : ""
+      shield: this.getRandomShield() // read whenever emblems take their shape from the culture
     });
   }
 

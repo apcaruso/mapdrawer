@@ -43,6 +43,7 @@ export interface HistoryAction {
   domains: readonly HistoryDomain[];
   layers: readonly LayerId[]; // redrawn after the step is undone or redone
   after?: () => void; // rebuilds what derives from the restored data, before the redraw
+  merge?: string; // steps in a row with the same key are one, e.g. the picks made in one color picker
 }
 
 interface CellDiff {
@@ -62,6 +63,7 @@ interface Entry {
   label: string;
   layers: readonly LayerId[];
   after?: () => void;
+  merge?: string;
   cells: CellDiff[];
   json: JsonDiff[];
   bytes: number;
@@ -89,7 +91,7 @@ function writeJson(key: JsonKey, value: string): void {
 }
 
 /** Run an action and remember what it changed, so it can be undone */
-function record<T>({ label, domains, layers, after }: HistoryAction, action: () => T): T {
+function record<T>({ label, domains, layers, after, merge }: HistoryAction, action: () => T): T {
   const cellsBefore = domains
     .filter(domain => !isJsonKey(domain) && pack.cells[cellKey(domain)])
     .map(domain => {
@@ -100,7 +102,7 @@ function record<T>({ label, domains, layers, after }: HistoryAction, action: () 
 
   const result = action();
 
-  const entry: Entry = { label, layers, after, cells: [], json: [], bytes: 0 };
+  const entry: Entry = { label, layers, after, merge, cells: [], json: [], bytes: 0 };
   for (const { key, values } of cellsBefore) {
     const current = cellArray(key);
     if (current.length !== values.length) {
@@ -123,6 +125,10 @@ function record<T>({ label, domains, layers, after }: HistoryAction, action: () 
   }
 
   if (!entry.cells.length && !entry.json.length) return result;
+  if (mergeInto(past.at(-1), entry)) {
+    emit();
+    return result;
+  }
   entry.bytes =
     entry.cells.reduce((sum, diff) => sum + diff.indices.length * 24, 0) +
     entry.json.reduce((sum, diff) => sum + (diff.before.length + diff.after.length) * 2, 0);
@@ -132,6 +138,18 @@ function record<T>({ label, domains, layers, after }: HistoryAction, action: () 
   trim();
   emit();
   return result;
+}
+
+/** fold a step into the previous one with the same merge key: it keeps its start and takes the new end */
+function mergeInto(previous: Entry | undefined, entry: Entry): boolean {
+  if (!entry.merge || previous?.merge !== entry.merge || entry.cells.length || previous.cells.length) return false;
+  for (const diff of entry.json) {
+    const same = previous.json.find(other => other.key === diff.key);
+    if (same) same.after = diff.after;
+    else previous.json.push(diff);
+  }
+  previous.bytes = previous.json.reduce((sum, diff) => sum + (diff.before.length + diff.after.length) * 2, 0);
+  return true;
 }
 
 function trim(): void {

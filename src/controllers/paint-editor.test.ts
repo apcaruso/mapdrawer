@@ -7,6 +7,8 @@ import { PaintEditor } from "./paint-editor";
 import "@/generators/pack-generator"; // registers the Pack global the editor finds cells with
 
 vi.mock("@/components/viewbox-events", () => ({ applyDefaultViewboxEvents: vi.fn() }));
+const colorPicker = vi.hoisted(() => ({ open: vi.fn(), close: vi.fn() }));
+vi.mock("@/controllers", () => ({ Controllers: { ColorPicker: colorPicker } }));
 vi.mock("@/components/dialog/dialog-helpers", async importOriginal => ({
   ...(await importOriginal<typeof import("@/components/dialog/dialog-helpers")>()),
   closeDialogs: vi.fn()
@@ -98,7 +100,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  PaintEditor.apply(); // a session a test left open would answer the next test's history events
   vi.restoreAllMocks();
+  colorPicker.open.mockClear();
 });
 
 describe("PaintEditor", () => {
@@ -447,6 +451,44 @@ describe("PaintEditor", () => {
     UndoHistory.undo();
     expect(options()).toEqual(["Neutral", "North"]);
     expect(itemSelect.value).toBe("1");
+  });
+
+  it("keeps the color swatch inert unless the caller offers recoloring", () => {
+    PaintEditor.open(getOptions());
+    document.getElementById("paintEditorFill")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(colorPicker.open).not.toHaveBeenCalled();
+  });
+
+  it("recolors the selected item from the swatch, all the picks of one picker in one undo step", async () => {
+    const { UndoHistory } = await import("@/components/undo-history");
+    UndoHistory.clear();
+    const states = [
+      { i: 0, name: "Neutral", color: "#ffffff" },
+      { i: 1, name: "North", color: "#ff0000" }
+    ];
+    (pack as unknown as { states: typeof states }).states = states;
+    const apply = vi.fn((id: number, color: string) => {
+      pack.states[id].color = color;
+    });
+    PaintEditor.open(
+      getOptions({
+        items: () => pack.states.map(s => ({ id: s.i, name: s.name!, color: s.color! })),
+        recolor: { history: { domains: ["states"], layers: [] }, apply }
+      })
+    );
+    const swatch = document.getElementById("paintEditorFill") as HTMLElement & { fill: string };
+    swatch.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(colorPicker.open).toHaveBeenCalledWith("#ff0000", expect.any(Function));
+
+    const pick = colorPicker.open.mock.calls[0][1] as (color: string) => void;
+    pick("#00ff00");
+    pick("#0000ff");
+    expect(pack.states[1].color).toBe("#0000ff");
+    expect(swatch.fill).toBe("#0000ff");
+
+    UndoHistory.undo();
+    expect(pack.states[1].color).toBe("#ff0000");
+    expect(UndoHistory.peek().undo).toBeUndefined();
   });
 
   it("uses the default brush radius", () => {

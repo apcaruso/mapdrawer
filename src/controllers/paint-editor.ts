@@ -4,6 +4,7 @@ import { MapBrush } from "@/components/map-brush";
 import type { FillBoxElement } from "@/components/shared/fill-box";
 import { clearMainTip, showMainTip, tip } from "@/components/tooltips";
 import { type HistoryAction, UndoHistory } from "@/components/undo-history";
+import { Controllers } from "@/controllers";
 import {
   openPaintOverlay,
   type PaintOverlayCell,
@@ -26,6 +27,11 @@ export interface PaintEditorCreator {
   at: (point: Point) => PaintEditorItem | undefined; // creates it, or explains why not and returns nothing
 }
 
+export interface PaintEditorRecolor {
+  history: Omit<HistoryAction, "label" | "merge">; // what a new color changes, so it can be undone
+  apply: (id: number, color: string) => void;
+}
+
 export interface PaintEditorAction {
   label: string;
   tip: string;
@@ -45,6 +51,7 @@ interface CommonPaintEditorOptions {
   fill?: boolean; // offers the bucket: a click fills the connected area of one value on one landmass
   create?: PaintEditorCreator; // offers a button to create a new item from the map
   rename?: (id: number, name: string) => void; // offers renaming the selected item
+  recolor?: PaintEditorRecolor; // the color swatch opens the picker for the selected item
   renameTip?: string;
   actions?: PaintEditorAction[];
 }
@@ -88,6 +95,7 @@ const eraseAllValue = -1;
 let state: PaintEditorState | null = null;
 let brush: MapBrush | null = null;
 const lastSelected = new Map<string, number>(); // per editor title, so reopening paints with the same item
+let pickerSession = 0;
 globalThis.addEventListener?.("map:generated", () => lastSelected.clear()); // the ids belong to the map
 
 /** returns false when another edit mode is active and the editor cannot open */
@@ -233,7 +241,11 @@ function renderDialog(options: OpenPaintEditorOptions, items: readonly PaintEdit
       <button id="paintEditorCancel" aria-label="Cancel" data-tip="Cancel painted changes" class="icon-cancel"></button>`;
   const html = /* html */ `<div id="${dialogId}" class="dialog" style="display: flex; flex-direction: column; gap: 0.6em">
     <div style="display: grid; gap: 0.5em;">
-      <label style="display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.4em">Paint: <select id="paintEditorSelect"></select><fill-box id="paintEditorFill" fill="${selectedColor}" size="1.4em" data-tip="Selected paint color" disabled></fill-box></label>
+      <label style="display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.4em">Paint: <select id="paintEditorSelect"></select>${
+        options.recolor
+          ? `<fill-box id="paintEditorFill" fill="${selectedColor}" size="1.4em" data-tip="Click to change the color of the selected item"></fill-box>`
+          : `<fill-box id="paintEditorFill" fill="${selectedColor}" size="1.4em" data-tip="Selected paint color" disabled></fill-box>`
+      }</label>
       ${renameInput}
       ${modeButtons}
       ${brush?.markup ?? ""}
@@ -281,6 +293,7 @@ function addListeners(): void {
   document.getElementById("paintEditorBrushTool")?.addEventListener("click", () => setTool("brush"));
   document.getElementById("paintEditorFillTool")?.addEventListener("click", () => setTool("fill"));
   document.getElementById("paintEditorName")?.addEventListener("change", renameSelected);
+  if (getState().options.recolor) ensureEl("paintEditorFill").addEventListener("click", recolorSelected);
   document.getElementById("paintEditorActions")?.addEventListener("click", event => {
     const index = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action;
     if (index !== undefined) getState().options.actions?.[Number(index)]?.run();
@@ -329,6 +342,21 @@ function renameSelected(event: Event): void {
   item.name = name;
   const option = ensureEl<HTMLSelectElement>("paintEditorSelect").querySelector(`option[value="${item.id}"]`);
   if (option) option.textContent = name;
+}
+
+/** the picker recolors the selected item; all the picks of one picker are one undo step */
+function recolorSelected(): void {
+  const { options, selectedId, itemsById } = getState();
+  const item = selectedId === undefined ? undefined : itemsById.get(selectedId);
+  if (!options.recolor || !item || !isRealItem(item.id)) return;
+
+  const { history, apply } = options.recolor;
+  const merge = `recolor-${++pickerSession}`;
+  void Controllers.ColorPicker.open(item.color, color => {
+    UndoHistory.record({ label: `Recolor ${item.name}`, merge, ...history }, () => apply(item.id, color));
+    item.color = color;
+    if (state?.selectedId === item.id) ensureEl<FillBoxElement>("paintEditorFill").fill = color;
+  });
 }
 
 function showSelectedName(item: PaintEditorItem): void {
@@ -558,6 +586,7 @@ function applyLive(): void {
 }
 
 function cleanup(): void {
+  if (state?.options.recolor) void Controllers.ColorPicker.close(); // its picks belong to this session
   state?.unsubscribe?.();
   state = null;
   destroyDialog(dialogId);

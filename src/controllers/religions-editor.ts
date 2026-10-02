@@ -881,6 +881,14 @@ function paint(onClose: () => void): Promise<boolean> {
         pack.religions[religionId].name = name;
         if (document.getElementById(dialogId)) refreshReligionsEditor();
       }),
+    recolor: {
+      history: { domains: ["religions"], layers: ["religions"] },
+      apply: (religionId, color) => {
+        pack.religions[religionId].color = color;
+        Layers.draw("religions");
+        if (document.getElementById(dialogId)) refreshReligionsEditor();
+      }
+    },
     actions: [
       {
         label: "Expand",

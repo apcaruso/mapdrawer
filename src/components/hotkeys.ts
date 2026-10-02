@@ -63,6 +63,7 @@ function handleKeyup(event: KeyboardEvent): void {
   else if (code === "Tab") toggleOptions(event);
   else if (code === "Escape") {
     void ToolManager.activate(SELECT_TOOL);
+    void Controllers.ColorPicker.close();
     closeDialogs();
     hideOptions();
   } else if (code === "Delete") removeElementOnKey();

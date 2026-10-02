@@ -418,6 +418,17 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
   - Salvare non chiude più lo strumento attivo.
   - Il pennello e le sovrimpressioni non finiscono più nel file.
 
+- **Colore di stati, province, culture e religioni.** Nella finestra di pittura il riquadro del colore era disattivato.
+  Ora un clic apre il selettore di colore e cambia il colore dell'elemento selezionato, con la mappa aggiornata a ogni
+  scelta.
+  - Tutte le scelte fatte in un'apertura del selettore sono un solo passo di Annulla. La storia ora sa unire i passi
+    consecutivi con la stessa chiave (`merge`).
+  - Esc chiude il selettore, che prima restava aperto e bloccava i clic.
+- **Piccoli difetti dalla stessa prova.**
+  - Una cultura creata a mano non aveva la forma dello scudo e segnalava un errore a ogni stemma.
+  - La colonna Treasury dell'editor degli stati, che appartiene all'economia nascosta, mostrava "NaN". Ora è
+    nascosta di default.
+
 **Verificato e lasciato com'è.**
 - Abbassare la terra sotto una capitale lascia la sua cella sopra l'acqua, con un avviso. È voluto: città e centri
   sono "ancorati".

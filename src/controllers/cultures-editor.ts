@@ -936,6 +936,14 @@ function paint(onClose: () => void): Promise<boolean> {
         pack.cultures[cultureId].name = name;
         if (document.getElementById(dialogId)) refreshCulturesEditor();
       }),
+    recolor: {
+      history: { domains: ["cultures"], layers: ["cultures"] },
+      apply: (cultureId, color) => {
+        pack.cultures[cultureId].color = color;
+        Layers.draw("cultures");
+        if (document.getElementById(dialogId)) refreshCulturesEditor();
+      }
+    },
     actions: [
       {
         label: "Expand",

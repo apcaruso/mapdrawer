@@ -108,6 +108,35 @@ describe("UndoHistory", () => {
     expect(UndoHistory.peek()).toEqual({ undo: "Paint states", redo: undefined });
   });
 
+  it("merges steps in a row with the same merge key into one, from the first start to the last end", () => {
+    const recolor = (color: string) =>
+      UndoHistory.record({ label: "Recolor", domains: ["states"], layers: ["states"], merge: "picker-1" }, () => {
+        (pack.states[1] as { color?: string }).color = color;
+      });
+    recolor("#ff0000");
+    recolor("#00ff00");
+    recolor("#0000ff");
+    expect(UndoHistory.peek().undo).toBe("Recolor");
+
+    UndoHistory.undo();
+    expect((pack.states[1] as { color?: string }).color).toBeUndefined();
+    expect(UndoHistory.peek().undo).toBeUndefined();
+
+    UndoHistory.redo();
+    expect((pack.states[1] as { color?: string }).color).toBe("#0000ff");
+  });
+
+  it("keeps steps with another merge key apart", () => {
+    const recolor = (color: string, merge: string) =>
+      UndoHistory.record({ label: "Recolor", domains: ["states"], layers: ["states"], merge }, () => {
+        (pack.states[1] as { color?: string }).color = color;
+      });
+    recolor("#ff0000", "picker-1");
+    recolor("#00ff00", "picker-2");
+    UndoHistory.undo();
+    expect((pack.states[1] as { color?: string }).color).toBe("#ff0000");
+  });
+
   it("drops the redo branch on a new action", () => {
     paint();
     UndoHistory.undo();

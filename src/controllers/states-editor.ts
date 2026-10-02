@@ -118,6 +118,7 @@ const columns: EditorColumn<State>[] = [
   {
     key: "treasury",
     label: "Treasury",
+    hidden: true, // the economy is kept out of the fork's interface
     width: "6em",
     mobileHidden: true,
     tip: "Click to sort by state treasury. Click on a value to view and edit taxes",
@@ -1273,6 +1274,14 @@ function paint(onClose: () => void): Promise<boolean> {
       }
     },
     rename: (stateId, name) => recordStateChange("Rename state", () => renameState(stateId, name)),
+    recolor: {
+      history: { domains: ["states"], layers: ["states"] },
+      apply: (stateId, color) => {
+        pack.states[stateId].color = color;
+        Layers.draw("states");
+        if (document.getElementById(dialogId)) refreshStatesEditor();
+      }
+    },
     renameTip: "The short name of the state: its form, such as Kingdom of, is added to it",
     actions: [
       {

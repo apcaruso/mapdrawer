@@ -1132,6 +1132,14 @@ function paint(onClose: () => void): Promise<boolean> {
         Layers.draw("labels");
         if (document.getElementById(dialogId)) refreshProvincesEditor();
       }),
+    recolor: {
+      history: { domains: ["provinces"], layers: ["provinces"] },
+      apply: (provinceId, color) => {
+        pack.provinces[provinceId].color = color;
+        Layers.draw("provinces");
+        if (document.getElementById(dialogId)) refreshProvincesEditor();
+      }
+    },
     actions: [
       {
         label: "Expand",
