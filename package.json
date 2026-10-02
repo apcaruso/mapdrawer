@@ -3,13 +3,13 @@
   "productName": "Fantasy Map Generator",
   "version": "1.153.1",
   "description": "Azgaar's _Fantasy Map Generator_ is a free web application that helps fantasy writers, game masters, and cartographers create and edit fantasy maps.",
-  "homepage": "https://github.com/Azgaar/Fantasy-Map-Generator#readme",
+  "homepage": "https://apcaruso.github.io/mapdrawer/",
   "bugs": {
-    "url": "https://github.com/Azgaar/Fantasy-Map-Generator/issues"
+    "url": "https://github.com/apcaruso/mapdrawer/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Azgaar/Fantasy-Map-Generator.git"
+    "url": "git+https://github.com/apcaruso/mapdrawer.git"
   },
   "license": "MIT",
   "author": "Azgaar",

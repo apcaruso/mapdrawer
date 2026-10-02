@@ -3,7 +3,7 @@ name: Deploy static content to Pages
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -16,6 +16,7 @@ permissions:
 
 env:
   ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+  BASE_PATH: /${{ github.event.repository.name }}/ # the site lives at <owner>.github.io/<repository>/
 
 # Allow one concurrent deployment
 concurrency:

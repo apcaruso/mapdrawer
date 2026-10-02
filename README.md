@@ -1,4 +1,42 @@
-# Fantasy Map Generator
+# MapDrawer
+
+A draw-first take on Azgaar's Fantasy Map Generator: start from an empty ocean and draw the world yourself, with
+fast tools, instead of generating a random map and editing it.
+
+**Live:** [apcaruso.github.io/mapdrawer](https://apcaruso.github.io/mapdrawer/)
+
+- **Blank start:** a new map is an empty ocean; the last saved map reopens on start-up.
+- **Tool palette** on the left, one key per tool:
+
+  | Key | Tool | Key | Tool |
+  | --- | --- | --- | --- |
+  | V | Select | S | States |
+  | B | Land brush | P | Provinces |
+  | E | Sea brush (lakes inside land) | C | Cultures |
+  | L | Lasso (Alt carves sea) | R | Religions |
+  | H / D | Raise / lower | G | Biomes |
+  | F | Smooth | I | Relief icons |
+  | M | Mountain range | W | River |
+  | U | Burg | O | Route |
+  | T | Label | K | Marker |
+
+- **Map views** at the bottom left (Physical, Political, Provinces, Cultures, Religions, Biomes); the view follows
+  the tool.
+- **Painting** states, provinces, cultures and religions: drag to paint, "+ New" founds one, the swatch changes its
+  color, Expand grows them over unclaimed land.
+- **Undo and redo** for every tool: Ctrl + Z, Ctrl + Shift + Z.
+
+Economy, markets, trade, military and journeys are kept out of the interface. The fork's plan and progress are in
+[docs/fork/ROADMAP.md](docs/fork/ROADMAP.md) (Italian).
+
+MapDrawer is based on [Fantasy Map Generator](https://github.com/Azgaar/Fantasy-Map-Generator) by Max Haniyeu
+(Azgaar), released under the MIT License. It is an independent project: report its issues here, not upstream.
+
+---
+
+_The original README follows._
+
+## Fantasy Map Generator
 
 Azgaar's _Fantasy Map Generator_ is a free web application that helps fantasy writers, game masters, and cartographers create and edit fantasy maps.
 

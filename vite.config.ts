@@ -16,7 +16,8 @@ const stripWebOnlyTags = {
 
 export default ({ mode }: { mode: string }) => ({
   root: "./src",
-  base: mode === "electron" ? "./" : process.env.NETLIFY ? "/" : "/Fantasy-Map-Generator/",
+  // BASE_PATH is the site's path on GitHub Pages, set by the deploy workflow from the repository name
+  base: mode === "electron" ? "./" : process.env.NETLIFY ? "/" : (process.env.BASE_PATH ?? "/Fantasy-Map-Generator/"),
   plugins: mode === "electron" ? [stripWebOnlyTags] : [],
   build: {
     outDir: mode === "electron" ? "../dist-electron/renderer" : "../dist",
