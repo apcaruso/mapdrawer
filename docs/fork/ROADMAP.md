@@ -406,6 +406,8 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
   - Una vera modifica fatta in un editor (rinomina, colore…) diventa un passo a sé, "Edits made in a dialog", e
     Ctrl+Z annulla prima quella, poi prosegue.
   - Ripeti, se la mappa è cambiata dopo un annulla, scarta solo il ramo da ripetere.
+  - Eliminare con il tasto Canc (città, marker, etichette…) è un passo di Annulla vero, "Delete", in ordine
+    cronologico.
 - **Lavoro perso al riavvio.** L'app partiva sempre da una mappa vuota, e dopo 15 minuti il salvataggio automatico
   sovrascriveva l'ultima mappa salvata nel browser con quella vuota.
   - Ora all'avvio riapre l'ultima mappa salvata, e parte vuota solo se non ce n'è nessuna.

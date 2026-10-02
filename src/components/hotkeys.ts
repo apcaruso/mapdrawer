@@ -7,7 +7,7 @@ import { showInfo } from "./app-info";
 import { closeDialogs } from "./dialog/dialog-helpers";
 import { getLayerByShortcut } from "./options/tabs/layers-tab";
 import { SELECT_TOOL, ToolManager } from "./tools/tool-manager";
-import { UndoHistory } from "./undo-history";
+import { type HistoryAction, UndoHistory } from "./undo-history";
 import { changeMapZoom, panMap, setMapZoom } from "./zoom";
 
 // Hotkeys, see github.com/Azgaar/Fantasy-Map-Generator/wiki/Hotkeys
@@ -171,7 +171,34 @@ function handleBracketSizeChange(code: string): boolean {
   return true;
 }
 
+// what the Delete key may remove through an editor, so the removal is one undo step
+const DELETE_HISTORY: HistoryAction = {
+  label: "Delete",
+  domains: [
+    "cells.burg",
+    "cells.state",
+    "cells.province",
+    "cells.r",
+    "burgs",
+    "states",
+    "provinces",
+    "cultures",
+    "religions",
+    "routes",
+    "cells.routes",
+    "rivers",
+    "markers",
+    "zones",
+    "addedLabels"
+  ],
+  layers: ["burgIcons", "labels", "markers", "routes", "rivers", "states", "borders", "provinces", "emblems", "zones"]
+};
+
 function removeElementOnKey(): void {
+  UndoHistory.record(DELETE_HISTORY, removeInOpenEditor);
+}
+
+function removeInOpenEditor(): void {
   const fastDelete = Array.from(document.querySelectorAll<HTMLElement>("[role='dialog'] .fastDelete")).find(
     dialog => dialog.style.display !== "none"
   );
