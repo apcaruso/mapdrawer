@@ -59,14 +59,53 @@ describe("UndoHistory", () => {
     expect(UndoHistory.peek().undo).toBeUndefined();
   });
 
-  it("refuses to undo over a change it did not record, and forgets the stale steps", () => {
+  it("undoes a change made outside the history first, as a step of its own, then the steps before it", () => {
     paint();
     pack.states[1].name = "Renamed in an editor";
 
     UndoHistory.undo();
+    expect(pack.states[1].name).toBe("New");
+    expect(UndoHistory.peek()).toEqual({ undo: "Paint states", redo: "Edits made in a dialog" });
+
+    UndoHistory.undo();
+    expect(pack.states[1].name).toBe("Old");
+    expect(Array.from(pack.cells.state)).toEqual([0, 0, 1, 1]);
+
+    UndoHistory.redo();
+    UndoHistory.redo();
     expect(pack.states[1].name).toBe("Renamed in an editor");
-    expect(UndoHistory.peek().undo).toBeUndefined();
-    expect(tip).toHaveBeenCalledWith(expect.stringContaining("changed outside"), false, "error", 5000);
+    expect(pack.cells.state[0]).toBe(1);
+  });
+
+  it("takes back an outside change of cells only where the step had changed them", () => {
+    paint();
+    pack.cells.state[0] = 2; // repainted in an editor
+    pack.cells.state[3] = 2; // a cell the step never touched
+
+    UndoHistory.undo();
+    expect(Array.from(pack.cells.state)).toEqual([1, 0, 1, 2]);
+  });
+
+  it("ignores the statistics an editor recounts when it opens", () => {
+    paint();
+    Object.assign(pack.states[1], { area: 120, cells: 3, burgs: 1, rural: 2, urban: 1 });
+
+    UndoHistory.undo();
+    expect(pack.states[1].name).toBe("Old");
+    expect(UndoHistory.peek()).toEqual({ undo: undefined, redo: "Paint states" });
+  });
+
+  it("drops only the redo branch when the map changed after an undo", () => {
+    paint();
+    UndoHistory.record(paintAction, () => {
+      pack.cells.state[1] = 1;
+    });
+    UndoHistory.undo();
+    pack.states[1].name = "Renamed in an editor";
+
+    UndoHistory.redo();
+    expect(pack.states[1].name).toBe("Renamed in an editor");
+    expect(UndoHistory.peek()).toEqual({ undo: "Paint states", redo: undefined });
   });
 
   it("drops the redo branch on a new action", () => {

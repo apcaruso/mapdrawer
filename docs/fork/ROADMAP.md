@@ -399,6 +399,23 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
   Su una nuova mappa vuota i nomi di capitali, città e town si vedono dalla prima vista. Villaggi e borghi restano
   legati allo zoom.
 
+- **Annulla che cancellava tutto.** Se la mappa non corrispondeva più all'ultimo passo, la storia veniva svuotata per
+  intero. Bastava aprire l'editor degli stati, delle province, delle culture o delle religioni: ricontano le
+  statistiche (area, celle, città, popolazione) dentro i dati.
+  - Ora il confronto ignora quelle statistiche.
+  - Una vera modifica fatta in un editor (rinomina, colore…) diventa un passo a sé, "Edits made in a dialog", e
+    Ctrl+Z annulla prima quella, poi prosegue.
+  - Ripeti, se la mappa è cambiata dopo un annulla, scarta solo il ramo da ripetere.
+- **Lavoro perso al riavvio.** L'app partiva sempre da una mappa vuota, e dopo 15 minuti il salvataggio automatico
+  sovrascriveva l'ultima mappa salvata nel browser con quella vuota.
+  - Ora all'avvio riapre l'ultima mappa salvata, e parte vuota solo se non ce n'è nessuna.
+  - Le opzioni già salvate nel browser vengono migrate una volta sola. Una scelta esplicita di "Start a blank map"
+    fatta dopo resta.
+- **Salvare mentre si dipinge.** Con uno strumento di pittura attivo il salvataggio, anche quello automatico, era
+  bloccato ("EDIT mode"). La pittura applica ogni tratto quando finisce, quindi ora si può salvare.
+  - Salvare non chiude più lo strumento attivo.
+  - Il pennello e le sovrimpressioni non finiscono più nel file.
+
 **Verificato e lasciato com'è.**
 - Abbassare la terra sotto una capitale lascia la sua cella sopra l'acqua, con un avviso. È voluto: città e centri
   sono "ancorati".

@@ -29,6 +29,14 @@ declare global {
 export const STORAGE_KEY = "fmg-options";
 export const DEFAULT_THEME_COLOR = "#997787";
 const SAVE_DELAY = 500;
+const RESUME_MIGRATION_KEY = "fork-resume-last-map";
+
+/** browsers that kept the old blank start resume the last saved map too, once; a later choice is kept */
+function resumeLastMapOnce(): void {
+  if (localStorage.getItem(RESUME_MIGRATION_KEY)) return;
+  if (options.app.onLoad === "blank") options.app.onLoad = "lastSaved";
+  localStorage.setItem(RESUME_MIGRATION_KEY, "1");
+}
 
 const locale = () => (typeof navigator === "undefined" ? "" : navigator.language);
 const isImperial = () => ["en-US", "en-GB"].includes(locale());
@@ -87,7 +95,7 @@ class OptionsModel {
         labels: { showAll: false },
         heightmapEditor: { renderOcean: false, showDrainage: false, allowErosion: true },
         performance: { shapeRendering: "optimizeSpeed", stateHalos: false, viewportRedraw: "continuous" }, // "balance"
-        onLoad: "blank",
+        onLoad: "lastSaved", // a drawing resumes where it was left; with nothing saved the map starts blank
         zoomExtent: { min: 1, max: 20 },
         viewport: null,
         autosave: { interval: 15, remind: true },
@@ -141,6 +149,7 @@ class OptionsModel {
     deepMerge(source, stored);
 
     options = parseSections<OptionsData>(optionsSchema, this.getDefaultOptions(), source, "Options.restore");
+    resumeLastMapOnce();
     this.repairSets();
     this.setGraphSize(Pins.valueOr("mapWidth", window.innerWidth), Pins.valueOr("mapHeight", window.innerHeight));
     this.persist();

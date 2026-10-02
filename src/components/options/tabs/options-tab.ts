@@ -433,9 +433,9 @@ const TEMPLATE = /* html */ `
       <td>On load</td>
       <td>
         <select id="onloadBehavior" data-option="onloadBehavior">
-          <option value="blank" selected>Start a blank map</option>
+          <option value="lastSaved" selected>Open last saved map (blank if none)</option>
+          <option value="blank">Start a blank map</option>
           <option value="random">Generate random map</option>
-          <option value="lastSaved">Open last saved map</option>
         </select>
       </td>
       <td></td>

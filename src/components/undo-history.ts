@@ -68,6 +68,7 @@ interface Entry {
 }
 
 const MAX_ENTRIES = 100;
+const OUTSIDE_LABEL = "Edits made in a dialog";
 const MAX_BYTES = 64 * 1024 * 1024;
 
 let past: Entry[] = [];
@@ -138,13 +139,54 @@ function trim(): void {
   while (past.length > MAX_ENTRIES || (bytes > MAX_BYTES && past.length > 1)) bytes -= past.shift()!.bytes;
 }
 
+// the editors recount these whenever they open: not edits, so they never set a step apart from the map
+const STATISTICS = new Set(["area", "cells", "burgs", "rural", "urban"]);
+const COUNTED: readonly JsonKey[] = ["states", "provinces", "cultures", "religions"];
+
+function sameData(key: JsonKey, a: string, b: string): boolean {
+  if (a === b) return true;
+  if (!COUNTED.includes(key)) return false;
+  const strip = (json: string) =>
+    JSON.stringify(JSON.parse(json), (field, value) => (STATISTICS.has(field) ? undefined : value));
+  return strip(a) === strip(b);
+}
+
 /** does the map still look the way this side of the step left it */
 function matches(entry: Entry, side: "before" | "after"): boolean {
   const cellsMatch = entry.cells.every(diff => {
     const current = cellArray(diff.key);
     return diff.indices.every((cell, index) => current[cell] === diff[side][index]);
   });
-  return cellsMatch && entry.json.every(diff => readJson(diff.key) === diff[side]);
+  return cellsMatch && entry.json.every(diff => sameData(diff.key, readJson(diff.key), diff[side]));
+}
+
+/** what changed after the step outside the history, e.g. in an editor dialog, as a step of its own */
+function captureOutside(entry: Entry): Entry {
+  const outside: Entry = {
+    label: OUTSIDE_LABEL,
+    layers: entry.layers,
+    after: entry.after,
+    cells: [],
+    json: [],
+    bytes: 0
+  };
+  for (const diff of entry.cells) {
+    const current = cellArray(diff.key);
+    const changed: CellDiff = { key: diff.key, indices: [], before: [], after: [] };
+    diff.indices.forEach((cell, index) => {
+      if (current[cell] === diff.after[index]) return;
+      changed.indices.push(cell);
+      changed.before.push(diff.after[index]);
+      changed.after.push(current[cell]);
+    });
+    if (changed.indices.length) outside.cells.push(changed);
+  }
+  for (const diff of entry.json) {
+    const current = readJson(diff.key);
+    if (!sameData(diff.key, current, diff.after))
+      outside.json.push({ key: diff.key, before: diff.after, after: current });
+  }
+  return outside;
 }
 
 function restore(entry: Entry, side: "before" | "after"): void {
@@ -162,31 +204,36 @@ function restore(entry: Entry, side: "before" | "after"): void {
   refreshEditors();
 }
 
+/** undo the latest change: one made outside the history since the last step comes first */
 function undo(): void {
   const entry = past.at(-1);
   if (!entry) return void tip("Nothing to undo", false, "warn", 2000);
-  if (!matches(entry, "after")) return void conflict();
 
-  restore(entry, "before");
-  future.push(past.pop()!);
-  tip(`Undone: ${entry.label}`, false, "info", 2000);
+  if (matches(entry, "after")) {
+    restore(entry, "before");
+    future.push(past.pop()!);
+  } else {
+    const outside = captureOutside(entry);
+    restore(outside, "before");
+    future.push(outside);
+  }
+  tip(`Undone: ${future.at(-1)!.label}`, false, "info", 2000);
   emit();
 }
 
 function redo(): void {
   const entry = future.at(-1);
   if (!entry) return void tip("Nothing to redo", false, "warn", 2000);
-  if (!matches(entry, "before")) return void conflict();
+  if (!matches(entry, "before")) {
+    future = []; // the map changed since the undo: as with a new step, there is nothing to redo
+    emit();
+    return void tip("Nothing to redo: the map changed since the undo", false, "warn", 3000);
+  }
 
   restore(entry, "after");
   past.push(future.pop()!);
   tip(`Redone: ${entry.label}`, false, "info", 2000);
   emit();
-}
-
-function conflict(): void {
-  clear();
-  tip("The map was changed outside the undo history, so earlier steps can no longer be undone", false, "error", 5000);
 }
 
 function clear(): void {

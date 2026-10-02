@@ -18,8 +18,10 @@ const toMachine = (): Promise<void> => save(writeToMachine);
 const toDropbox = (): Promise<void> => save(writeToDropbox);
 
 async function save(write: Writer): Promise<void> {
-  if (customization) return tip("Map cannot be saved in EDIT mode, please complete the edit and retry", false, "error");
-  closeDialogs("#alert");
+  // painting (2) applies every stroke as it ends, so the map is whole between strokes
+  if (customization && customization !== 2)
+    return tip("Map cannot be saved in EDIT mode, please complete the edit and retry", false, "error");
+  closeDialogs("#alert, #paintEditor, #reliefEditor"); // the active drawing tool keeps going after a save
 
   try {
     await write(prepareMapData(), `${getFileName()}.map`);
@@ -93,6 +95,7 @@ function prepareMapData(): string {
   const cloneTradeAnimation = cloneEl.querySelector("#tradeAnimation");
   if (cloneTradeAnimation) cloneTradeAnimation.innerHTML = ""; // always remove transient trade animations
   cloneEl.querySelector("#journeyOverlay")?.remove(); // transient journey path-editing handles
+  cloneEl.querySelector("#debug")?.replaceChildren(); // brush circle, paint overlay and highlights of the active tool
   cloneEl.querySelector("#journeyTravel")?.remove(); // transient journey travel animation
 
   const serializedSVG = new XMLSerializer().serializeToString(cloneEl);

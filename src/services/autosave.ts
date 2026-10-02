@@ -15,7 +15,9 @@ export function initiateAutosave(): void {
 
     const diffInMinutes = (Date.now() - lastSavedAt) / MINUTE;
     if (diffInMinutes < timeoutMinutes) return;
-    if (customization) return tip("Autosave: map cannot be saved in edit mode", false, "warn", 2000);
+    // painting (2) applies every stroke as it ends, so the map is whole between strokes
+    if (customization && customization !== 2)
+      return tip("Autosave: map cannot be saved in edit mode", false, "warn", 2000);
 
     try {
       tip("Autosave: saving map...", false, "warn", 3000);
