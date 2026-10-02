@@ -9,7 +9,7 @@ const SWITCHER_ID = "viewSwitcher";
 const STYLE = /* css */ `
   #${SWITCHER_ID} {
     position: fixed;
-    left: calc(2.5em + 28px); /* right of the tool palette, which may reach down this far on a short screen */
+    left: calc(var(--tool-palette-right, 50px) + 10px); /* the palette may reach down this far on a short screen */
     bottom: calc(1vw + 30px); /* above the tip line */
     z-index: 1;
     display: flex;

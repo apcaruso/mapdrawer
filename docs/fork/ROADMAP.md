@@ -24,7 +24,8 @@
 | 6 — Città, strade, etichette, marker | ✅ | Vedi sotto |
 | 7 — Fluidità | ✅ | Vedi sotto |
 | 7.1 — Correzioni dalla prova d'uso | ✅ | Disegnare le nazioni e cambiare vista. Vedi sotto |
-| 8–9 | da fare | |
+| 8 — Generatori come assistenti | ❌ scartato | Decisione dell'utente: è uno strumento per disegnare, la generazione non serve |
+| 9 — Rifinitura | da fare | Priorità: workflow fluido e nessun bug invalidante |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -358,6 +359,9 @@ Del tempo JavaScript che resta, circa 16 ms sono la copia delle città per Annul
   appartengono all'editor, e andava in errore senza l'editor aperto.
 - **Palette su schermi bassi.** La palette non esce più dallo schermo e non copre il pulsante delle opzioni: scorre
   invece di tagliarsi.
+- **Menu principale.** Si apre accanto alla palette invece che sotto, e resta sopra la barra delle opzioni dello
+  strumento quando la finestra è stretta. La palette pubblica il suo bordo destro in `--tool-palette-right`; anche la
+  barra delle viste lo usa.
 - **Test.** Nuovi `map-views.test.ts`, più cinque casi in `paint-editor.test.ts`. Due casi vecchi si aspettavano
   "Neutrals" selezionato all'apertura e sono stati aggiornati.
 
@@ -621,15 +625,15 @@ senza entrare in nessuna "modalità" e con l'undo funzionante.
 
 **Fatto quando:** pan e zoom girano a 60 fps sulla mappa demo e nessun task supera i 50 ms durante il disegno.
 
-### Step 8 — Generatori come assistenti
+### Step 8 — Generatori come assistenti *(scartato)*
 
-- Azioni "Genera…" contestuali alla selezione o all'area: nomi, fiumi, biomi, rilievi, villaggi, rotte, province,
-  culture e religioni, stemmi, popolazione. Tutte rispettano i lock e ciò che è dipinto a mano.
-- La "mappa casuale" completa resta come punto di partenza opzionale.
-- I moduli di simulazione (economia, militare, journeys) si attivano su richiesta.
+Scartato dall'utente: il fork è uno strumento per disegnare, e gli assistenti di generazione non servono. Contano un
+workflow fluido e l'assenza di bug invalidanti. La "mappa casuale" completa resta disponibile dal dialogo New Map.
 
 ### Step 9 — Rifinitura
 
+- Prova d'uso completa da utente nuovo, come quella che ha portato allo Step 7.1. Si sistemano i punti macchinosi e i
+  bug che bloccano il lavoro.
 - Onboarding: il tour `driver.js` esistente va adattato al nuovo flusso.
 - Documentazione del fork.
 - Test e2e del flusso completo: mappa vuota → continente → stati → città → salva/carica.

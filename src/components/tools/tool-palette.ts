@@ -58,6 +58,10 @@ const STYLE = /* css */ `
     opacity: 0.35;
     cursor: default;
   }
+  #options {
+    margin-left: calc(var(--tool-palette-right, 50px) + 8px); /* the menu opens beside the palette, not under it */
+    z-index: 2; /* over the tool options bar on a narrow screen */
+  }
   #${PALETTE_ID} hr {
     flex-shrink: 0;
     width: 80%;
@@ -107,6 +111,14 @@ function render(): void {
   });
 }
 
+/** the palette's right edge, for what must open beside it; it changes with the interface size */
+function publishPaletteEdge(palette: HTMLElement): void {
+  const update = () =>
+    document.documentElement.style.setProperty("--tool-palette-right", `${palette.getBoundingClientRect().right}px`);
+  new ResizeObserver(update).observe(palette);
+  update();
+}
+
 function showActiveTool(): void {
   const active = ToolManager.getCurrent()?.id;
   for (const button of document.querySelectorAll<HTMLElement>(`#${PALETTE_ID} [data-tool]`)) {
@@ -138,6 +150,7 @@ for (const command of MAP_COMMANDS) {
 }
 
 render();
+publishPaletteEdge(document.getElementById(PALETTE_ID)!);
 ToolManager.register(...DRAWING_TOOLS);
 ToolManager.subscribe(showActiveTool);
 UndoHistory.subscribe(showHistory);
