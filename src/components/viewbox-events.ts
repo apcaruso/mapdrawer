@@ -1,8 +1,9 @@
 // Default interaction on the map canvas: pan/zoom, click-to-edit and hover tooltips
-import { drag, select } from "d3";
+import { drag, pointer, select } from "d3";
 import { Controllers } from "@/controllers";
 import type { LabelType } from "@/generators/labels-generator";
 import { dragLegendBox } from "@/renderers/draw-legend";
+import { findReliefIconAt } from "@/renderers/draw-relief-icons";
 import { debounce } from "@/utils/commonUtils";
 import { attachDragToMove } from "./drag-move";
 import { handleMouseMove } from "./map-tooltip";
@@ -77,5 +78,12 @@ function onClick(event: MouseEvent): void {
   }
 
   const open = PARENT_EDITORS[parent.id] || GRAND_EDITORS[grand.id] || GREAT_EDITORS[great.id];
-  open?.(target, parent);
+  if (open) {
+    open(target, parent);
+    return;
+  }
+
+  const [x, y] = pointer(event, document.getElementById("viewbox"));
+  const iconId = findReliefIconAt(x, y);
+  if (iconId !== undefined) Controllers.ReliefEditor.openIcon(iconId);
 }

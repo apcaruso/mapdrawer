@@ -41,6 +41,16 @@ export const redrawRelief = (): void => {
 
 export const getSceneReliefIcon = (id: string): ReliefIcon | undefined => scene.get(id)?.data;
 
+/** the icon drawn on top at a map point: as one image, the icons cannot be clicked themselves */
+export function findReliefIconAt(x: number, y: number): string | undefined {
+  if (isEditing || !scene.valid || !Layers.isOn("relief")) return undefined;
+  let found: string | undefined;
+  for (const { id, data } of scene.values()) {
+    if (x >= data.x && x <= data.x + data.s && y >= data.y && y <= data.y + data.s) found = id; // later is on top
+  }
+  return found;
+}
+
 export function removeRelief(): void {
   scene.invalidate();
   document.querySelector("#terrain")?.replaceChildren();
@@ -95,7 +105,8 @@ function showAsImage(
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
 
   const image = document.createElementNS("http://www.w3.org/2000/svg", "image");
-  for (const [name, value] of Object.entries({ href: url, x, y, width: w, height: h }))
+  // clicks go to the rivers and lakes beneath; an icon is found by findReliefIconAt
+  for (const [name, value] of Object.entries({ href: url, x, y, width: w, height: h, "pointer-events": "none" }))
     image.setAttribute(name, String(value));
   // the previous image stays until the new one is decoded, so the icons never blink
   const previous = [...terrain.children];

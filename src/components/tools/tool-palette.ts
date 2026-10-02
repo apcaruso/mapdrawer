@@ -119,6 +119,20 @@ function publishPaletteEdge(palette: HTMLElement): void {
   update();
 }
 
+/** a dialog that opens over the palette moves beside it, so the tools stay in reach */
+function keepDialogsBeside(palette: HTMLElement): void {
+  const moveAside = (dialog: HTMLElement) => {
+    const edge = palette.getBoundingClientRect();
+    const box = dialog.getBoundingClientRect();
+    const overlaps = box.left < edge.right && box.right > edge.left && box.top < edge.bottom && box.bottom > edge.top;
+    if (overlaps) dialog.style.left = `${parseFloat(getComputedStyle(dialog).left) + edge.right + 8 - box.left}px`;
+  };
+  $(document).on("dialogopen", ".dialog", function (this: HTMLElement) {
+    const dialog = this.closest<HTMLElement>(".ui-dialog");
+    if (dialog) queueMicrotask(() => moveAside(dialog)); // after the remembered position is applied
+  });
+}
+
 function showActiveTool(): void {
   const active = ToolManager.getCurrent()?.id;
   for (const button of document.querySelectorAll<HTMLElement>(`#${PALETTE_ID} [data-tool]`)) {
@@ -151,6 +165,7 @@ for (const command of MAP_COMMANDS) {
 
 render();
 publishPaletteEdge(document.getElementById(PALETTE_ID)!);
+keepDialogsBeside(document.getElementById(PALETTE_ID)!);
 ToolManager.register(...DRAWING_TOOLS);
 ToolManager.subscribe(showActiveTool);
 UndoHistory.subscribe(showHistory);

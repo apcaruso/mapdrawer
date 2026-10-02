@@ -25,7 +25,7 @@
 | 7 — Fluidità | ✅ | Vedi sotto |
 | 7.1 — Correzioni dalla prova d'uso | ✅ | Disegnare le nazioni e cambiare vista. Vedi sotto |
 | 8 — Generatori come assistenti | ❌ scartato | Decisione dell'utente: è uno strumento per disegnare, la generazione non serve |
-| 9 — Rifinitura | da fare | Priorità: workflow fluido e nessun bug invalidante |
+| 9 — Rifinitura | in corso | Priorità: workflow fluido e nessun bug invalidante. Vedi sotto |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
 
@@ -364,6 +364,48 @@ Del tempo JavaScript che resta, circa 16 ms sono la copia delle città per Annul
   barra delle viste lo usa.
 - **Test.** Nuovi `map-views.test.ts`, più cinque casi in `paint-editor.test.ts`. Due casi vecchi si aspettavano
   "Neutrals" selezionato all'apertura e sono stati aggiornati.
+
+### Cosa fa lo Step 9 (in corso): prova d'uso completa
+
+**Metodo.** Una sonda Playwright rifà un'intera sessione da utente nuovo, con screenshot a ogni passo:
+- terreno: terra, mare, lasso, catena montuosa, alza, abbassa, ammorbidisci;
+- natura: fiume, biomi, icone del rilievo;
+- politica: stati, province, culture, religioni;
+- luoghi: città, strade, etichette, marker;
+- selezione degli elementi, viste, annulla/ripeti, nuova mappa.
+
+Una seconda sonda incrocia gli strumenti: modifica la costa sopra dati politici, fa catene di annulla e selezioni.
+Dopo ogni passo controlla che i dati restino coerenti: città su terra e nella loro cella, stati con capitale, niente
+celle d'acqua con stato, fiumi e strade solo sul loro terreno.
+
+**Trovato e corretto.**
+- **Icone del rilievo (I).** Il pennello partiva senza icona e non piazzava nulla ("Please select an icon").
+  - Inoltre, sulla terra disegnata le icone automatiche (foreste, erba) coprono tutto e la spaziatura vietava ogni
+    nuova icona.
+  - Ora parte con la prima icona del set, e l'icona dipinta sostituisce quelle diverse sotto il pennello.
+  - Ogni tratto, aggiunta o rimozione, è un passo di Annulla.
+- **Clic sulla mappa.** Dallo Step 7 il rilievo è un'unica immagine, che intercettava tutti i clic sulla terra.
+  - I fiumi non erano più cliccabili, e qualunque clic apriva l'editor del rilievo.
+  - Ora l'immagine lascia passare i clic. Un'icona si trova dai dati solo se sotto il puntatore non c'è altro da
+    aprire.
+- **Strade sul mare.** Abbassare la terra sotto una strada la lasciava sull'acqua. Ora la strada si spezza nei tratti
+  rimasti sul suo terreno (`DrawnRoutes.trimDrowned`), come i fiumi. Lo stesso vale per le rotte marittime
+  coperte da nuova terra.
+  - I pennelli del terreno salvano nella storia anche la rete delle strade (`cells.routes`) e ridisegnano le strade.
+- **Finestre sopra la palette.** L'editor delle città, quello del rilievo e gli altri editor originali si aprivano in
+  alto a sinistra, coprendo gli strumenti. Ora una finestra che si apre sopra la palette si sposta accanto, dopo aver
+  applicato la posizione ricordata.
+- **Città invisibili.** Una "town" piazzata a vista intera non mostrava il nome: il gruppo lo mostra solo da zoom 2.
+  Su una nuova mappa vuota i nomi di capitali, città e town si vedono dalla prima vista. Villaggi e borghi restano
+  legati allo zoom.
+
+**Verificato e lasciato com'è.**
+- Abbassare la terra sotto una capitale lascia la sua cella sopra l'acqua, con un avviso. È voluto: città e centri
+  sono "ancorati".
+- Strade e fiumi a vista intera sono larghi un pixel e difficili da cliccare, come nell'originale.
+- L'editor heightmap originale (Tools → Heightmap) in modalità *Erase* rigenera i dati a caso alla chiusura. La
+  finestra lo avverte esplicitamente prima di scegliere, e solo quella modalità offre template e conversione da
+  immagine.
 
 ### Misure dopo lo Step 1
 

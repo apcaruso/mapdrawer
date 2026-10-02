@@ -194,7 +194,7 @@ export const DRAWING_TOOLS: Tool[] = [
     },
     "reliefEditor",
     async () => {
-      await Controllers.ReliefEditor.open(undefined as unknown as SVGElement); // no icon picked: start with the brush
+      await Controllers.ReliefEditor.open(); // no icon picked: start with the brush
       findEl("reliefBulkAdd")?.click();
     }
   ),

@@ -73,4 +73,40 @@ function add(course: readonly number[], group: string): number {
   return routeId;
 }
 
-export const DrawnRoutes = { traceCourse, add };
+/** after a coast edit: a route keeps the stretches still on its ground, each piece a route of its own. True if any changed */
+function trimDrowned(): boolean {
+  const { cells } = pack;
+  let nextId = Routes.getNextId();
+  let changed = false;
+  const kept: Route[] = [];
+
+  for (const route of pack.routes) {
+    const onWater = route.group === "searoutes";
+    const fits = (point: number[]) => cells.h[point[2]] < LAND === onWater || Boolean(cells.burg[point[2]]);
+    if (route.points.every(fits)) {
+      kept.push(route);
+      continue;
+    }
+
+    changed = true;
+    const pieces: number[][][] = [[]];
+    for (const point of route.points) {
+      if (fits(point)) pieces.at(-1)!.push(point);
+      else if (pieces.at(-1)!.length) pieces.push([]);
+    }
+    pieces
+      .filter(points => points.length > 1)
+      .forEach((points, index) => {
+        const { cells: _cells, length: _length, ...rest } = route; // cached for the old course
+        kept.push({ ...rest, i: index ? nextId++ : route.i, feature: cells.f[points[0][2]], points });
+      });
+  }
+
+  if (!changed) return false;
+  pack.routes = kept;
+  cells.routes = Routes.buildLinks(kept);
+  Routes.sync();
+  return true;
+}
+
+export const DrawnRoutes = { traceCourse, add, trimDrowned };

@@ -1,6 +1,7 @@
 // Live terrain edits on the stable graph: heights change in place and what derives from them follows
 import Alea from "alea";
 import { DrawnRivers } from "@/generators/drawn-rivers";
+import { DrawnRoutes } from "@/generators/drawn-routes";
 import type { TypedArray } from "@/types/PackedGraph";
 import { minmax } from "@/utils";
 
@@ -11,6 +12,7 @@ export interface TerrainEdit {
   coastChanged: boolean; // some cell crossed sea level
   anchored: number; // cells kept above water because something stands on them
   riversChanged: boolean; // a river was shortened or removed because its land sank
+  routesChanged: boolean; // a route was cut where it left its ground
 }
 
 /** land that must stay land: burgs, and the centers states, provinces, cultures and religions grow from */
@@ -29,7 +31,13 @@ function getAnchoredCells(): Set<number> {
 function setHeights(heights: ReadonlyMap<number, number>): TerrainEdit {
   const { cells } = pack;
   const anchoredCells = getAnchoredCells();
-  const edit: TerrainEdit = { changed: [], coastChanged: false, anchored: 0, riversChanged: false };
+  const edit: TerrainEdit = {
+    changed: [],
+    coastChanged: false,
+    anchored: 0,
+    riversChanged: false,
+    routesChanged: false
+  };
 
   for (const [cell, value] of heights) {
     let height = minmax(Math.round(value), 0, 100);
@@ -52,6 +60,7 @@ function setHeights(heights: ReadonlyMap<number, number>): TerrainEdit {
   if (edit.coastChanged) {
     clearDrownedCells(edit.changed);
     edit.riversChanged = DrawnRivers.trimDrowned();
+    edit.routesChanged = DrawnRoutes.trimDrowned();
   }
   defineBiomes(edit.changed);
   updateRelief(edit.changed);
@@ -69,6 +78,7 @@ function resync(changed: readonly number[] = []): void {
   Temperature.generate();
   Precipitation.generate();
   updateRelief(changed);
+  Routes.sync();
 }
 
 /** relief icons follow the edited cells; a map whose relief was never generated gets it when the layer is drawn */

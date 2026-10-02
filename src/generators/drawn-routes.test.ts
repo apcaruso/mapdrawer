@@ -95,3 +95,58 @@ describe("DrawnRoutes.add", () => {
     expect(pack.cells.routes[course[1]][course[0]]).toBe(routeId);
   });
 });
+
+describe("DrawnRoutes.trimDrowned", () => {
+  const roadBetweenBurgs = () =>
+    DrawnRoutes.add(
+      DrawnRoutes.traceCourse(
+        [
+          [60, 150],
+          [200, 150]
+        ],
+        false
+      )!,
+      "roads"
+    );
+  const sinkStrait = () =>
+    Terrain.setHeights(
+      new Map(
+        Array.from(pack.cells.i)
+          .filter(cell => Math.abs(pack.cells.p[cell][0] - 130) < 15)
+          .map(cell => [cell, 5])
+      )
+    );
+
+  it("splits a road the sea cut into its pieces on land, linked anew", () => {
+    const routeId = roadBetweenBurgs();
+    const edit = sinkStrait();
+
+    expect(edit.routesChanged).toBe(true);
+    expect(pack.routes.length).toBe(2);
+    expect(pack.routes.some(route => route.i === routeId)).toBe(true);
+    for (const route of pack.routes) {
+      expect(route.points.every(point => pack.cells.h[point[2]] >= 20)).toBe(true);
+      const [from, to] = [route.points[0][2], route.points[1][2]];
+      expect(pack.cells.routes[from][to]).toBe(route.i);
+    }
+    const links = Object.entries(pack.cells.routes).flatMap(([cell, next]) => [
+      Number(cell),
+      ...Object.keys(next).map(Number)
+    ]);
+    expect(links.every(cell => pack.cells.h[cell] >= 20)).toBe(true);
+  });
+
+  it("leaves a road the sea did not reach alone", () => {
+    roadBetweenBurgs();
+    const before = pack.routes.map(route => route.points.map(point => point[2]));
+    const edit = Terrain.setHeights(
+      new Map(
+        Array.from(pack.cells.i)
+          .filter(cell => pack.cells.p[cell][1] < 30 && pack.cells.h[cell] >= 20)
+          .map(cell => [cell, 5])
+      )
+    );
+    expect(edit.routesChanged).toBe(false);
+    expect(pack.routes.map(route => route.points.map(point => point[2]))).toEqual(before); // its feature id may be renumbered
+  });
+});

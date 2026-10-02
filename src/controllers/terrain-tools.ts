@@ -59,6 +59,7 @@ const DOMAINS: HistoryDomain[] = [
   "cells.r",
   "burgs",
   "routes",
+  "cells.routes",
   "rivers"
 ];
 const RELIEF_LAYERS: LayerId[] = ["heightmap", "biomes", "relief"];
@@ -73,7 +74,8 @@ const COAST_LAYERS: LayerId[] = [
   "borders",
   "cultures",
   "religions",
-  "rivers"
+  "rivers",
+  "routes"
 ];
 
 const settings = { radius: 30, strength: 5, roughness: 40, lassoSea: false };

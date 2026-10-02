@@ -55,6 +55,11 @@ function establishBlankMap({ density, zone }: BlankMapRequest): void {
   map.geography.longitude = 50;
   map.lore.name = "Untitled";
 
+  // a drawn map holds the burgs its author placed, not hundreds: their names show from the first view
+  for (const group of map.labels.groups) {
+    if (group.type === "burg" && ["capital", "city", "town"].includes(group.name)) group.zoom.min = null;
+  }
+
   options.map = map;
   options.generation.graph.density = density;
 }

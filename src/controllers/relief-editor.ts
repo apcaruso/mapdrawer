@@ -2,6 +2,7 @@ import { drag, quadtree, range, select } from "d3";
 import { closeDialogs, destroyDialog } from "@/components/dialog/dialog-helpers";
 import { Layers } from "@/components/layers";
 import { clearMainTip, showMainTip, tip } from "@/components/tooltips";
+import { UndoHistory } from "@/components/undo-history";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { RELIEF_ICONS, RELIEF_SETS } from "@/data/relief-icons";
 import { getReliefIconId, type ReliefIcon } from "@/generators/relief-generator";
@@ -42,13 +43,23 @@ const setIconsHtml = (set: ReliefSet): string =>
     })
     .join("");
 
-function open(element: SVGElement): void {
+/** edit the clicked icon, or start without one */
+function open(element?: Element): void {
+  openWith(getIconData(element));
+}
+
+/** edit an icon found by its scene id, e.g. under the pointer while the icons are one image */
+function openIcon(id: string): void {
+  openWith(getSceneReliefIcon(id) ?? null);
+}
+
+function openWith(icon: ReliefIcon | null): void {
   if (customization) return;
   closeDialogs(".stable");
   Layers.show("relief");
   setReliefEditing(true); // the icons become elements the editor can pick and drag
 
-  selectedIcon = getIconData(element);
+  selectedIcon = icon;
   select<SVGGElement, unknown>("#terrain")
     .call(drag<SVGGElement, unknown>().on("start", dragReliefIcon))
     .classed("draggable", true);
@@ -235,10 +246,11 @@ function enterBulkAddMode(): void {
 
   const reliefIconsDiv = ensureEl("reliefIconsDiv");
   const pressedType = reliefIconsDiv.querySelector("svg.pressed");
-  if (pressedType?.id === "reliefIconsSeletionAny") {
-    // if "any" is pressed, select first type
-    ensureEl("reliefIconsSeletionAny").classList.remove("pressed");
-    reliefIconsDiv.querySelector("svg")?.classList.add("pressed");
+  if (!pressedType || pressedType.id === "reliefIconsSeletionAny") {
+    // the brush always has an icon to place: the first of the shown set
+    pressedType?.classList.remove("pressed");
+    const set = ensureEl<HTMLSelectElement>("reliefEditorSet").value;
+    reliefIconsDiv.querySelector(`div[data-type='${set}'] svg`)?.classList.add("pressed");
   }
 
   select<SVGElement, unknown>("#viewbox")
@@ -267,7 +279,11 @@ function dragToAdd(this: SVGElement, event: any): void {
   const spacing = +ensureEl<HTMLInputElement>("reliefSpacingNumber").value;
   const size = +ensureEl<HTMLInputElement>("reliefSizeNumber").value;
 
-  const tree = quadtree(pack.relief.map(({ x, y, s }) => [x + s / 2, y + s / 2] as [number, number]));
+  // drawn land is covered with icons: a different one under the brush gives way, the same one is not stacked
+  const tree = quadtree<[number, number, ReliefIcon]>();
+  for (const reliefIcon of pack.relief)
+    tree.add([reliefIcon.x + reliefIcon.s / 2, reliefIcon.y + reliefIcon.s / 2, reliefIcon]);
+  const replaced = new Set<ReliefIcon>();
 
   const stroke = createBrushStroke(r / 2, (x, y) => {
     range(Math.ceil(r / 10)).forEach(() => {
@@ -276,14 +292,25 @@ function dragToAdd(this: SVGElement, event: any): void {
       const cx = x + rad * Math.cos(a);
       const cy = y + rad * Math.sin(a);
 
-      if (tree.find(cx, cy, spacing)) return; // too close to existing icon
       if (pack.cells.h[Pack.findCell(cx, cy)!] < 20) return; // on water cell
+      const near = findAllInQuadtree(cx, cy, spacing, tree);
+      if (near.some(entry => entry[2].icon === icon)) return;
+      for (const entry of near) {
+        tree.remove(entry);
+        replaced.add(entry[2]);
+      }
 
       const h = rn((size / 2) * (Math.random() * 0.4 + 0.8), 2);
-      tree.add([cx, cy]);
-      insertIcon({ icon, x: rn(cx - h, 2), y: rn(cy - h, 2), s: rn(h * 2, 2) });
+      const added = { icon, x: rn(cx - h, 2), y: rn(cy - h, 2), s: rn(h * 2, 2) };
+      tree.add([cx, cy, added]);
+      insertIcon(added);
     });
+    if (!replaced.size) return;
+    pack.relief = pack.relief.filter(reliefIcon => !replaced.has(reliefIcon));
+    if (selectedIcon && replaced.has(selectedIcon)) selectedIcon = null;
+    replaced.clear();
   });
+  recordStroke("Place relief icons", event);
   const [startX, startY] = getPointer(event, this);
   let started = false;
 
@@ -297,6 +324,19 @@ function dragToAdd(this: SVGElement, event: any): void {
     }
     stroke.moveTo(x, y);
     redrawRelief();
+  });
+}
+
+/** a brush stroke over the icons is one undo step */
+function recordStroke(label: string, event: any): void {
+  const before = pack.relief.slice(); // placing inserts in place
+  event.on("end", () => {
+    const after = pack.relief;
+    if (after.length === before.length && after.every((icon, index) => icon === before[index])) return;
+    pack.relief = before;
+    UndoHistory.record({ label, domains: ["relief"], layers: ["relief"] }, () => {
+      pack.relief = after;
+    });
   });
 }
 
@@ -358,6 +398,7 @@ function dragToRemove(this: SVGElement, event: any): void {
     if (selectedIcon && removed.has(selectedIcon)) selectedIcon = null;
     redrawRelief();
   });
+  recordStroke("Remove relief icons", event);
   const [startX, startY] = getPointer(event, this);
   let started = false;
 
@@ -487,4 +528,4 @@ function closeReliefEditor(): void {
   setReliefEditing(false);
 }
 
-export const ReliefEditor = { open };
+export const ReliefEditor = { open, openIcon };
