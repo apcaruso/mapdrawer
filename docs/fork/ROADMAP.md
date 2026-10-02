@@ -714,7 +714,10 @@ workflow fluido e l'assenza di bug invalidanti. La "mappa casuale" completa rest
 
 ## Domande aperte
 
-- Repo GitHub del fork: pubblico o privato, e con quale nome?
+- ~~Repo GitHub del fork: pubblico o privato, e con quale nome?~~ Deciso il 2026-10-02: repository indipendente e
+  pubblico [apcaruso/mapdrawer](https://github.com/apcaruso/mapdrawer), pubblicato su
+  [apcaruso.github.io/mapdrawer](https://apcaruso.github.io/mapdrawer/) a ogni push su `main`. Non riceve gli
+  aggiornamenti dell'originale, per scelta.
 - Lingua dell'interfaccia: oggi è inglese. Restiamo in inglese o aggiungiamo l'italiano?
 - Densità di default delle mappe disegnate, da decidere con le misure dello Step 1.
 - Quali moduli nascondere di default (economia, militare, journeys, battle screen…)?
