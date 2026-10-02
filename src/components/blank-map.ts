@@ -2,8 +2,8 @@
 import { applyGraphSize, fitMapToScreen } from "@/components/canvas";
 import { closeDialogs } from "@/components/dialog/dialog-helpers";
 import { Layers } from "@/components/layers";
-import { applyLayersPreset } from "@/components/layers-presets";
 import { registerMap } from "@/components/lifecycle";
+import { MapViews } from "@/components/map-views";
 import { syncOptionInputs } from "@/components/options/tabs/options-tab";
 import { is3dView } from "@/components/options/view-mode";
 import { setSeed } from "@/components/seed";
@@ -94,6 +94,7 @@ export async function newBlankMap(request: BlankMapRequest = DEFAULT_BLANK_REQUE
     return;
   }
 
+  MapViews.restore("physical"); // the first thing drawn is land
   Layers.drawAll();
   if (is3dView()) Controllers.View3d.redraw();
   fitMapToScreen();
@@ -110,7 +111,7 @@ export async function blankMapOnLoad(): Promise<void> {
     return;
   }
 
-  applyLayersPreset();
+  MapViews.restore("physical");
   Layers.drawAll();
   fitMapToScreen();
 }

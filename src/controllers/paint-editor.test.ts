@@ -51,6 +51,7 @@ async function dragBrush(
 }
 
 beforeEach(() => {
+  window.dispatchEvent(new Event("map:generated")); // a fresh map: no remembered selection
   document.body.innerHTML =
     '<div id="dialogs"><div id="parentDialog" class="dialog"></div></div><div id="tooltip"></div><svg><g id="viewbox"></g><g id="debug"></g></svg>';
   globalThis.customization = 0;
@@ -344,7 +345,9 @@ describe("PaintEditor", () => {
     const protect = document.getElementById("paintEditorDontOverride") as HTMLInputElement;
     const landOnly = document.getElementById("paintEditorLandOnly") as HTMLInputElement;
     expect(landOnly.checked).toBe(true);
-    expect(itemSelect.value).toBe("-1");
+    expect(itemSelect.value).toBe("1"); // erasing is picked on purpose, never by default
+    itemSelect.value = "-1";
+    itemSelect.dispatchEvent(new Event("change"));
     expect(document.getElementById("paintEditorErase")).toBeNull();
     protect.checked = true;
 
@@ -354,6 +357,96 @@ describe("PaintEditor", () => {
 
     const changes = onApply.mock.calls[0][0] as ReadonlyMap<number, readonly number[]>;
     expect([...changes]).toEqual([[3, []]]);
+  });
+
+  it("starts with a real item, not the pinned one that erases", () => {
+    PaintEditor.open(
+      getOptions({
+        items: [
+          { id: 0, name: "Neutral", color: "#ffffff" },
+          { id: 2, name: "South", color: "#0000ff" },
+          { id: 1, name: "North", color: "#ff0000" }
+        ]
+      })
+    );
+    expect((document.getElementById("paintEditorSelect") as HTMLSelectElement).value).toBe("1");
+  });
+
+  it("starts with the item painted last, until another map is made", () => {
+    PaintEditor.open(getOptions());
+    const itemSelect = document.getElementById("paintEditorSelect") as HTMLSelectElement;
+    itemSelect.value = "3";
+    itemSelect.dispatchEvent(new Event("change"));
+    PaintEditor.apply();
+
+    PaintEditor.open(getOptions());
+    expect((document.getElementById("paintEditorSelect") as HTMLSelectElement).value).toBe("3");
+    PaintEditor.apply();
+
+    window.dispatchEvent(new Event("map:generated"));
+    PaintEditor.open(getOptions());
+    expect((document.getElementById("paintEditorSelect") as HTMLSelectElement).value).toBe("1");
+  });
+
+  it("with nothing made yet, a drag founds the first item where it starts and paints with it", async () => {
+    const onApply = vi.fn();
+    const at = vi.fn((_point: Point) => ({ id: 5, name: "Founded", color: "#00ff00" }));
+    PaintEditor.open(
+      getOptions({
+        items: [{ id: 0, name: "Neutral", color: "#ffffff" }],
+        live: true,
+        create: { label: "state", hint: "click on land to place its capital", at },
+        onApply
+      })
+    );
+    expect(document.getElementById("paintEditorCreate")?.classList.contains("pressed")).toBe(true);
+    expect(document.getElementById("tooltip")?.textContent).toContain("No state yet");
+
+    await dragBrush();
+
+    expect(at).toHaveBeenCalledTimes(1);
+    expect(at.mock.calls[0][0]).toEqual([1, 1]);
+    expect([...(onApply.mock.calls[0][0] as ReadonlyMap<number, number>)]).toEqual([[3, 5]]);
+    expect((document.getElementById("paintEditorSelect") as HTMLSelectElement).value).toBe("5");
+    expect(document.getElementById("paintEditorBrushTool")?.classList.contains("pressed")).toBe(true);
+  });
+
+  it("founds nothing on a drag the creator refuses, and paints nothing", async () => {
+    const onApply = vi.fn();
+    PaintEditor.open(
+      getOptions({
+        items: [{ id: 0, name: "Neutral", color: "#ffffff" }],
+        live: true,
+        create: { label: "state", hint: "click on land", at: () => undefined }, // e.g. the drag began at sea
+        onApply
+      })
+    );
+    await dragBrush();
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("reads a changing list again after an undo, leaving an item that is gone", async () => {
+    const { UndoHistory } = await import("@/components/undo-history");
+    const states = [
+      { i: 0, name: "Neutral", color: "#ffffff" },
+      { i: 1, name: "North", color: "#ff0000" }
+    ];
+    (pack as unknown as { states: typeof states }).states = states;
+    PaintEditor.open(getOptions({ items: () => pack.states.map(s => ({ id: s.i, name: s.name!, color: s.color! })) }));
+    const options = () =>
+      [...document.querySelectorAll<HTMLOptionElement>("#paintEditorSelect option")].map(o => o.textContent);
+
+    UndoHistory.record({ label: "New state", domains: ["states"], layers: [] }, () =>
+      states.push({ i: 2, name: "South", color: "#0000ff" })
+    );
+    expect(options()).toEqual(["Neutral", "North", "South"]);
+    const itemSelect = document.getElementById("paintEditorSelect") as HTMLSelectElement;
+    itemSelect.value = "2";
+    itemSelect.dispatchEvent(new Event("change"));
+
+    UndoHistory.undo();
+    expect(options()).toEqual(["Neutral", "North"]);
+    expect(itemSelect.value).toBe("1");
   });
 
   it("uses the default brush radius", () => {

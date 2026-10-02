@@ -1261,12 +1261,12 @@ function paint(onClose: () => void): Promise<boolean> {
     parentDialogId: dialogId,
     onClose,
     history: { domains: STATE_DOMAINS, layers: STATE_LAYERS },
-    items: pack.states.filter(state => !state.removed).map(paintItem),
+    items: () => pack.states.filter(state => !state.removed).map(paintItem),
     live: true,
     fill: true,
     create: {
       label: "state",
-      hint: "click on land to place its capital: an existing burg or a new one",
+      hint: "click on land to place its capital, a new burg or an existing one",
       at: point => {
         const stateId = recordStateChange("New state", () => createStateAt(point));
         return stateId ? paintItem(pack.states[stateId]) : undefined;

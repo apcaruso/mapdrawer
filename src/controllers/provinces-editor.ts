@@ -1113,7 +1113,7 @@ function paint(onClose: () => void): Promise<boolean> {
     parentDialogId: dialogId,
     onClose,
     history: PROVINCE_HISTORY,
-    items: getProvincesData().map(paintItem),
+    items: () => pack.provinces.filter(province => province.i && !province.removed).map(paintItem),
     live: true,
     fill: true,
     create: {

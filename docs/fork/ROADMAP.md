@@ -23,6 +23,7 @@
 | 5 — Mappa politica | ✅ | Vedi sotto |
 | 6 — Città, strade, etichette, marker | ✅ | Vedi sotto |
 | 7 — Fluidità | ✅ | Vedi sotto |
+| 7.1 — Correzioni dalla prova d'uso | ✅ | Disegnare le nazioni e cambiare vista. Vedi sotto |
 | 8–9 | da fare | |
 
 Lingua dell'interfaccia: **inglese**. Moduli nascosti: economia (beni, mercati, produzione, commercio), militare, journeys.
@@ -314,6 +315,51 @@ Del tempo JavaScript che resta, circa 16 ms sono la copia delle città per Annul
   feature, al posto di quella completa a ogni modifica della costa.
 - I test DOM `draw-texture` e `label-groups` falliscono anche sul master originale in questo ambiente (manca il globale
   `options`): non sono stati toccati.
+
+### Cosa fa lo Step 7.1 (correzioni dalla prova d'uso)
+
+**Problemi segnalati.**
+- *Disegnare le nazioni non funziona.* Con S e un trascinamento non succedeva nulla. La lista conteneva solo
+  "Neutrals", già selezionato, e dipingere con Neutrals su terra neutrale non cambia nulla. Per creare uno stato
+  bisognava trovare un piccolo "+" senza etichetta.
+- *Non si capisce come passare dalla mappa fisica a quella politica.* Le viste esistevano solo come preset nella
+  scheda Layers delle opzioni. La mappa vuota partiva con il preset politico, quindi la terra appena disegnata
+  restava bianca.
+
+**Correzioni nell'editor di pittura** (`paint-editor.ts`), valide per stati, province, culture e religioni.
+- Se non esiste ancora nulla, l'editor parte in modalità **New**, con il suggerimento "No state yet: click on land…".
+  - Un clic fonda lo stato.
+  - Un **trascinamento** lo fonda dove inizia e dipinge subito la sua terra.
+  - Se il fondatore rifiuta (ad esempio si parte dal mare), il tratto non dipinge.
+- Il pulsante "+" è diventato **"+ New state"** (o province, culture, religion), accanto a Brush e Fill.
+- All'apertura è selezionato un elemento vero, mai l'elemento che cancella (Neutrals, No zone…).
+  - L'editor ricorda l'ultimo elemento usato per ciascun tipo, finché non si crea o carica un'altra mappa.
+- La lista si rilegge dopo ogni annulla/ripeti: uno stato tolto da un annulla non resta selezionabile.
+- Al passaggio del mouse:
+  - sopra un elemento si vede il suo nome;
+  - sopra terra libera, o in modalità New, resta visibile cosa fare, invece di "No assignment".
+
+**Viste della mappa** (`map-views.ts`, `tools/view-switcher.ts`).
+- In basso a sinistra c'è sempre la barra **Physical · Political · Provinces · Cultures · Religions · Biomes**.
+  - Ogni vista è un insieme di layer.
+  - Fiumi, laghi, città, strade, etichette e marker restano in tutte le viste.
+- **La vista segue lo strumento.**
+  - Gli strumenti del terreno portano a Physical.
+  - States porta a Political, Provinces a Provinces, e così via.
+  - Durante l'uso di uno strumento si può cambiare vista a mano: la scelta resta finché non si prende un altro
+    strumento.
+- La mappa vuota parte in vista Physical: la terra disegnata si vede subito colorata per altitudine.
+- La vista politica non include il rilievo: le icone generate su tutta la terra coprivano i colori degli stati.
+
+**Altre correzioni.**
+- **Religioni.** Fondare una religione animista o non teista mandava in errore il generatore di nomi: la religione
+  non ha divinità, ma il codice chiamava comunque `deity.split`. Era un bug del codice originale.
+- **Religioni con lo strumento.** Dipingere religioni dalla palette disegnava i centri delle religioni, che
+  appartengono all'editor, e andava in errore senza l'editor aperto.
+- **Palette su schermi bassi.** La palette non esce più dallo schermo e non copre il pulsante delle opzioni: scorre
+  invece di tagliarsi.
+- **Test.** Nuovi `map-views.test.ts`, più cinque casi in `paint-editor.test.ts`. Due casi vecchi si aspettavano
+  "Neutrals" selezionato all'apertura e sono stati aggiornati.
 
 ### Misure dopo lo Step 1
 

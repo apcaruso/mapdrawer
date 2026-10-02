@@ -17,6 +17,7 @@ import "./blank-map";
 import "./hidden-modules";
 import "./undo-history";
 import "./tools/tool-palette";
+import "./tools/view-switcher";
 import "./dialog/dialog-helpers";
 import "./dialog/sorting";
 import "./shared/fill-box";

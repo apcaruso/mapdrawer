@@ -865,7 +865,7 @@ function paint(onClose: () => void): Promise<boolean> {
     parentDialogId: dialogId,
     onClose,
     history: { domains: ["cells.religion"], layers: ["religions"] },
-    items: pack.religions.filter(religion => !religion.removed && (!religion.i || religion.cells)).map(paintItem),
+    items: () => pack.religions.filter(religion => !religion.removed).map(paintItem), // a new one has no cells counted yet
     live: true,
     fill: true,
     create: {
@@ -929,7 +929,8 @@ function applyReligionPaint(changes: ReadonlyMap<number, number>): void {
   for (const [cell, religion] of changes) pack.cells.religion[cell] = religion;
   if (changes.size) {
     Layers.draw("religions");
-    if (document.getElementById(dialogId)) refreshReligionsEditor();
+    if (!document.getElementById(dialogId)) return; // painting with the tool: the centers belong to the editor
+    refreshReligionsEditor();
     drawReligionCenters();
   }
 }

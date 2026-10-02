@@ -1239,7 +1239,7 @@ class ReligionsModule {
     const deity: string | null =
       form === "Non-theism" || form === "Animism" ? null : (this.getDeityName(cultureId) ?? null);
 
-    const [name, expansion] = this.generateReligionName(type, form, deity!, center);
+    const [name, expansion] = this.generateReligionName(type, form, deity, center);
 
     const code = abbreviate(name, codes);
     const influences = this.getReligionsInRadius(
@@ -1286,12 +1286,17 @@ class ReligionsModule {
     return `${cultureName}, The ${meaning}`;
   }
 
-  private generateReligionName(variety: string, form: string, deity: string, center: number): [string, string] {
+  private generateReligionName(
+    variety: string,
+    form: string,
+    deity: string | null | undefined, // none for a form without gods, such as Animism
+    center: number
+  ): [string, string] {
     const { cells, cultures, burgs, states } = pack;
 
     const random = () => Names.getCulture(cells.culture[center]);
     const type = rw(types[form]);
-    const supreme = deity.split(/[ ,]+/)[0];
+    const supreme = deity?.split(/[ ,]+/)[0] ?? "";
     const culture = cultures[cells.culture[center]].name;
 
     const place = (adj?: boolean): string => {

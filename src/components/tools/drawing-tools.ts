@@ -10,7 +10,7 @@ const icon = (name: string) => `<span class="icon-${name}"></span>`;
 const svgIcon = (path: string) =>
   `<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 
-type ToolSpec = Pick<Tool, "id" | "name" | "group" | "icon" | "key" | "hint">;
+type ToolSpec = Pick<Tool, "id" | "name" | "group" | "icon" | "key" | "hint" | "view">;
 
 /** paint cell values with the shared paint editor; the editor's own undo works on the strokes of the session */
 function paintTool(spec: ToolSpec, paint: (end: () => void) => Promise<boolean>): Tool {
@@ -20,7 +20,8 @@ function paintTool(spec: ToolSpec, paint: (end: () => void) => Promise<boolean>)
       if (!(await paint(end))) throw new Error("another edit mode is active");
     },
     deactivate: () => Controllers.PaintEditor.apply(),
-    undo: () => Controllers.PaintEditor.undoStroke()
+    undo: () => Controllers.PaintEditor.undoStroke(),
+    status: () => Controllers.PaintEditor.getStatus()
   };
 }
 
@@ -29,6 +30,7 @@ function terrainTool(spec: Omit<ToolSpec, "group">, mode: TerrainMode): Tool {
   return {
     ...spec,
     group: "terrain",
+    view: "physical",
     activate: async end => {
       if (!(await Controllers.TerrainTools.start(mode))) end();
     },
@@ -128,7 +130,8 @@ export const DRAWING_TOOLS: Tool[] = [
       group: "political",
       icon: icon("crown"),
       key: "KeyS",
-      hint: "drag to paint, click to pick the state under the pointer"
+      hint: "drag to paint, click to pick the state under the pointer",
+      view: "political"
     },
     end => Controllers.StatesEditor.paint(end)
   ),
@@ -139,12 +142,21 @@ export const DRAWING_TOOLS: Tool[] = [
       group: "political",
       icon: icon("flag"),
       key: "KeyP",
-      hint: "drag to paint provinces within their state"
+      hint: "drag to paint provinces within their state",
+      view: "provinces"
     },
     end => Controllers.ProvincesEditor.paint(end)
   ),
   paintTool(
-    { id: "cultures", name: "Cultures", group: "political", icon: icon("users"), key: "KeyC", hint: "drag to paint" },
+    {
+      id: "cultures",
+      name: "Cultures",
+      group: "political",
+      icon: icon("users"),
+      key: "KeyC",
+      hint: "drag to paint",
+      view: "cultures"
+    },
     end => Controllers.CulturesEditor.paint(end)
   ),
   paintTool(
@@ -154,12 +166,21 @@ export const DRAWING_TOOLS: Tool[] = [
       group: "political",
       icon: icon("place-of-worship"),
       key: "KeyR",
-      hint: "drag to paint"
+      hint: "drag to paint",
+      view: "religions"
     },
     end => Controllers.ReligionsEditor.paint(end)
   ),
   paintTool(
-    { id: "biomes", name: "Biomes", group: "nature", icon: icon("tree"), key: "KeyG", hint: "drag to paint" },
+    {
+      id: "biomes",
+      name: "Biomes",
+      group: "nature",
+      icon: icon("tree"),
+      key: "KeyG",
+      hint: "drag to paint",
+      view: "biomes"
+    },
     end => Controllers.BiomesEditor.paint(end)
   ),
   dialogTool(

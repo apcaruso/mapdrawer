@@ -1,5 +1,6 @@
 // One drawing tool is active at a time; Select is active when no other is
 import { stopMapPlacement } from "@/components/map-placement";
+import { MapViews, type ViewId } from "@/components/map-views";
 import { tip } from "@/components/tooltips";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import { Controllers } from "@/controllers";
@@ -11,6 +12,9 @@ export interface Tool {
   icon: string; // markup inside the palette button
   key?: string; // KeyboardEvent.code of the shortcut
   hint: string; // what to do with the tool, shown when it is picked
+  view?: ViewId; // the map view the tool works in, shown when it is picked
+  /** what to do right now, when it depends on the map: shown instead of the hint */
+  status?: () => string | undefined | Promise<string | undefined>;
   /** start the tool; it calls `end` when it stops by itself, e.g. its dialog is closed */
   activate: (end: () => void) => unknown;
   /** stop the tool when another one is picked, keeping its work */
@@ -74,8 +78,9 @@ async function switchTo(id: string): Promise<void> {
   };
 
   try {
+    MapViews.follow(tool.view);
     await tool.activate(end);
-    if (tool.id !== SELECT_TOOL) tip(`${tool.name}: ${tool.hint}`, true);
+    if (tool.id !== SELECT_TOOL) tip((await tool.status?.()) || `${tool.name}: ${tool.hint}`, true);
   } catch (error) {
     ERROR && console.error(error);
     tip(`Cannot start ${tool.name}: ${(error as Error).message}`, false, "error");

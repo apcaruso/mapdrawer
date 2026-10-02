@@ -920,7 +920,7 @@ function paint(onClose: () => void): Promise<boolean> {
     parentDialogId: dialogId,
     onClose,
     history: { domains: ["cells.culture", "burgs"], layers: ["cultures"] },
-    items: pack.cultures.filter(culture => !culture.removed).map(paintItem),
+    items: () => pack.cultures.filter(culture => !culture.removed).map(paintItem),
     live: true,
     fill: true,
     create: {

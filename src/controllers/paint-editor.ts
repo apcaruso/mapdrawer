@@ -2,7 +2,7 @@ import "@/components/shared/fill-box";
 import { destroyDialog } from "@/components/dialog/dialog-helpers";
 import { MapBrush } from "@/components/map-brush";
 import type { FillBoxElement } from "@/components/shared/fill-box";
-import { clearMainTip, tip } from "@/components/tooltips";
+import { clearMainTip, showMainTip, tip } from "@/components/tooltips";
 import { type HistoryAction, UndoHistory } from "@/components/undo-history";
 import {
   openPaintOverlay,
@@ -36,7 +36,8 @@ interface CommonPaintEditorOptions {
   title: string;
   parentDialogId: string;
   onClose: () => void;
-  items: readonly PaintEditorItem[];
+  /** a function when the map can change the list while painting: it is read again after every undo and redo */
+  items: readonly PaintEditorItem[] | (() => readonly PaintEditorItem[]);
   dontOverrideControl?: boolean;
   landOnlyControl?: boolean;
   history?: Omit<HistoryAction, "label">; // what the apply changes, so it can be undone
@@ -73,7 +74,9 @@ interface PaintEditorState {
   changes: PaintChanges;
   history: PaintHistoryEntry[];
   selectedId: number | undefined;
+  noneId: number | undefined; // the pinned item that means no assignment, such as Neutrals
   finalized: boolean;
+  unsubscribe?: () => void;
 }
 
 const dialogId = "paintEditor" as const;
@@ -84,6 +87,8 @@ const eraseAllValue = -1;
 
 let state: PaintEditorState | null = null;
 let brush: MapBrush | null = null;
+const lastSelected = new Map<string, number>(); // per editor title, so reopening paints with the same item
+globalThis.addEventListener?.("map:generated", () => lastSelected.clear()); // the ids belong to the map
 
 /** returns false when another edit mode is active and the editor cannot open */
 function open(options: OpenPaintEditorOptions): boolean {
@@ -104,14 +109,15 @@ function open(options: OpenPaintEditorOptions): boolean {
     onMove: showCellTip
   });
 
-  const items = sortItems(options.items);
+  const items = readItems(options);
   state = {
     options,
     itemsById: new Map(items.map(item => [item.id, item])),
     tool: "brush",
     changes: new Map(),
     history: [],
-    selectedId: items[0]?.id,
+    selectedId: undefined,
+    noneId: items[0]?.id <= 0 ? items[0].id : undefined, // pinned by sortItems
     finalized: false
   };
 
@@ -128,12 +134,62 @@ function open(options: OpenPaintEditorOptions): boolean {
       close: apply // closing keeps the painting, as switching tools does; Cancel discards it
     });
 
-    tip("Click to select, drag to paint. Shift + drag resizes the brush, Space + drag pans the map", true);
+    if (typeof options.items === "function") state.unsubscribe = UndoHistory.subscribe(syncItems);
+
+    // painting with the "none" item is erasing: start with a real item, or with creating the first one
+    selectItem(pickInitialItem(options.title, items));
+    if (options.create && !hasRealItems()) setTool("place");
+    else tip(getStatus(), true);
   } catch (error) {
     close(options.onClose);
     throw error;
   }
   return true;
+}
+
+function readItems({ items }: OpenPaintEditorOptions): PaintEditorItem[] {
+  return sortItems(typeof items === "function" ? items() : items);
+}
+
+/** the list after the map changed under it, e.g. an undo removed the state being painted */
+function syncItems(): void {
+  if (!state || state.finalized) return;
+  const items = readItems(state.options);
+  state.itemsById = new Map(items.map(item => [item.id, item]));
+  ensureEl<HTMLSelectElement>("paintEditorSelect").replaceChildren();
+  renderItems(items);
+
+  if (!selectItem(state.selectedId)) selectItem(pickInitialItem(state.options.title, items));
+  if (state.options.create && !hasRealItems()) setTool("place");
+}
+
+function pickInitialItem(title: string, items: readonly PaintEditorItem[]): number | undefined {
+  const remembered = lastSelected.get(title);
+  if (items.some(item => item.id === remembered)) return remembered;
+  return (items.find(item => isRealItem(item.id)) ?? items[0])?.id;
+}
+
+/** an item the user made, as opposed to the pinned "none" item */
+function isRealItem(id: number | undefined): id is number {
+  return id !== undefined && id !== getState().noneId;
+}
+
+function hasRealItems(): boolean {
+  return [...getState().itemsById.keys()].some(isRealItem);
+}
+
+/** what the user can do right now, for the main tip */
+function getStatus(): string {
+  if (!state) return "";
+  const { tool, options } = state;
+  const label = options.create?.label;
+  if (tool === "place" && label) {
+    const first = hasRealItems() ? `New ${label}` : `No ${label} yet`;
+    return `${first}: ${options.create?.hint}, or drag to found it and paint its land at once`;
+  }
+  if (tool === "fill") return "Fill: click to fill the connected area of one color on one landmass";
+  const create = label ? `, New ${label} to found another` : "";
+  return `Drag to paint, click to pick the item under the pointer${create}. Shift + drag resizes the brush, Space + drag pans`;
 }
 
 function sortItems(items: readonly PaintEditorItem[]): PaintEditorItem[] {
@@ -154,17 +210,19 @@ function renderDialog(options: OpenPaintEditorOptions, items: readonly PaintEdit
     ? `<label style="display: flex; align-items: center"><input id="paintEditorLandOnly" class="checkbox native" type="checkbox" checked> Change land only</label>`
     : "";
   const createButton = options.create
-    ? `<button id="paintEditorCreate" class="icon-plus" data-tip="New ${options.create.label}: ${options.create.hint}"></button>`
+    ? `<button id="paintEditorCreate" data-tip="New ${options.create.label}: ${options.create.hint}, or drag to found it and paint its land at once"><span class="icon-plus"></span> New ${options.create.label}</button>`
     : "";
   const renameInput = options.rename
     ? `<label style="display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.4em" data-tip="${options.renameTip ?? "Rename the selected item"}">Name: <input id="paintEditorName" /></label>`
     : "";
-  const toolButtons = options.fill
-    ? `<div style="display: flex; gap: 0.4em">
+  const modeButtons =
+    options.fill || options.create
+      ? `<div id="paintEditorModes" style="display: flex; gap: 0.4em">
         <button id="paintEditorBrushTool" class="pressed" data-tip="Brush: drag to paint, click to pick the item under the pointer">Brush</button>
-        <button id="paintEditorFillTool" data-tip="Fill: click to fill the connected area of one color on one landmass, e.g. a whole island. Alt + click fills with the brush too">Fill</button>
+        ${options.fill ? `<button id="paintEditorFillTool" data-tip="Fill: click to fill the connected area of one color on one landmass, e.g. a whole island. Alt + click fills with the brush too">Fill</button>` : ""}
+        ${createButton}
       </div>`
-    : "";
+      : "";
   const actionButtons = (options.actions ?? [])
     .map((action, index) => `<button data-action="${index}" data-tip="${action.tip}">${action.label}</button>`)
     .join("");
@@ -175,9 +233,9 @@ function renderDialog(options: OpenPaintEditorOptions, items: readonly PaintEdit
       <button id="paintEditorCancel" aria-label="Cancel" data-tip="Cancel painted changes" class="icon-cancel"></button>`;
   const html = /* html */ `<div id="${dialogId}" class="dialog" style="display: flex; flex-direction: column; gap: 0.6em">
     <div style="display: grid; gap: 0.5em;">
-      <label style="display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.4em">Paint: <select id="paintEditorSelect"></select><fill-box id="paintEditorFill" fill="${selectedColor}" size="1.4em" data-tip="Selected paint color" disabled></fill-box>${createButton}</label>
+      <label style="display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.4em">Paint: <select id="paintEditorSelect"></select><fill-box id="paintEditorFill" fill="${selectedColor}" size="1.4em" data-tip="Selected paint color" disabled></fill-box></label>
       ${renameInput}
-      ${toolButtons}
+      ${modeButtons}
       ${brush?.markup ?? ""}
     </div>
     <div id="paintEditorControls" style="display: flex; flex-direction: column; align-items: center; gap: 0.4em;">${dontOverrideControl}${landOnlyControl}</div>
@@ -189,14 +247,14 @@ function renderDialog(options: OpenPaintEditorOptions, items: readonly PaintEdit
 }
 
 function renderItems(items: readonly PaintEditorItem[]): void {
-  const itemSelect = ensureEl<HTMLSelectElement>("paintEditorSelect");
-  for (const item of items) {
-    const option = document.createElement("option");
-    option.value = String(item.id);
-    option.textContent = item.name;
-    itemSelect.appendChild(option);
-  }
-  if (items[0]) showSelectedName(items[0]);
+  for (const item of items) addOption(item);
+}
+
+function addOption(item: PaintEditorItem): void {
+  const option = document.createElement("option");
+  option.value = String(item.id);
+  option.textContent = item.name;
+  ensureEl<HTMLSelectElement>("paintEditorSelect").appendChild(option);
 }
 
 function updatePreview(cells: readonly number[]): void {
@@ -236,8 +294,7 @@ function setTool(tool: PaintEditorState["tool"]): void {
   document.getElementById("paintEditorBrushTool")?.classList.toggle("pressed", tool === "brush");
   document.getElementById("paintEditorFillTool")?.classList.toggle("pressed", tool === "fill");
   document.getElementById("paintEditorCreate")?.classList.toggle("pressed", tool === "place");
-  if (tool === "place") tip(`New ${activeState.options.create?.label}: ${activeState.options.create?.hint}`, true);
-  else clearMainTip();
+  tip(getStatus(), true);
 }
 
 function handleClick(point: Point, event?: MouseEvent): void {
@@ -248,18 +305,17 @@ function handleClick(point: Point, event?: MouseEvent): void {
 }
 
 /** create an item where the user clicked, add it to the list and paint with it */
-function placeNewItem(point: Point): void {
+function placeNewItem(point: Point): PaintEditorItem | undefined {
   const activeState = getState();
   const item = activeState.options.create?.at(point);
-  if (!item) return; // the creator explained why
+  if (!item) return undefined; // the creator explained why
 
+  if (!activeState.itemsById.has(item.id)) addOption(item); // a list read from the map may have it already
   activeState.itemsById.set(item.id, item);
-  const option = document.createElement("option");
-  option.value = String(item.id);
-  option.textContent = item.name;
-  ensureEl<HTMLSelectElement>("paintEditorSelect").appendChild(option);
   selectItem(item.id);
   setTool("brush");
+  tip(`${item.name} is founded: drag to paint its land`, true, "success");
+  return item;
 }
 
 function renameSelected(event: Event): void {
@@ -321,12 +377,22 @@ function selectPaintedItem([x, y]: Point): void {
   if (value !== undefined) selectItem(value);
 }
 
-function startPainting(_point: Point, radius: number) {
-  if (getState().tool !== "brush") return undefined; // fill and place work on a click
+function startPainting(origin: Point, radius: number) {
+  const { tool, options, selectedId } = getState();
+  if (tool === "fill") return undefined; // the bucket works on a click
+  // a stroke that founds its item first: in the New mode, or with nothing to paint but the "none" item
+  let founding = Boolean(options.create) && (tool === "place" || (!isRealItem(selectedId) && !hasRealItems()));
+  let failed = false;
   const historyEntry: PaintHistoryEntry = new Map();
   let recorded = false;
 
   return ([x, y]: Point) => {
+    if (failed) return;
+    if (founding) {
+      founding = false;
+      failed = !placeNewItem(origin); // only once the pointer moves: a plain click is handled as a click
+      if (failed) return;
+    }
     const found = radius > 5 ? Pack.findAll(x, y, radius) : [Pack.findCell(x, y)];
     const cells = found.filter((cell): cell is number => cell !== undefined);
     const selectedId = getState().selectedId;
@@ -337,24 +403,31 @@ function startPainting(_point: Point, radius: number) {
   };
 }
 
+/** the name of what is under the pointer; over nothing to pick, and while founding, what to do instead */
 function showCellTip([x, y]: Point): void {
   const cell = Pack.findCell(x, y);
-  if (cell === undefined) return;
+  const { itemsById, tool } = getState();
+  if (cell === undefined || tool === "place") {
+    showMainTip();
+    return;
+  }
 
-  const { itemsById } = getState();
   const names = getCurrentValues(cell)
+    .filter(isRealItem)
     .map(value => itemsById.get(value)?.name)
     .filter((name): name is string => Boolean(name));
-  tip(names.join(", ") || "No assignment");
+  if (names.length) tip(names.join(", "));
+  else showMainTip();
 }
 
-function selectItem(id: number): boolean {
+function selectItem(id: number | undefined): boolean {
   const activeState = getState();
-  const item = activeState.itemsById.get(id);
+  const item = id === undefined ? undefined : activeState.itemsById.get(id);
   if (!item) return false;
 
-  activeState.selectedId = id;
-  ensureEl<HTMLSelectElement>("paintEditorSelect").value = String(id);
+  activeState.selectedId = item.id;
+  lastSelected.set(activeState.options.title, item.id);
+  ensureEl<HTMLSelectElement>("paintEditorSelect").value = String(item.id);
   ensureEl<FillBoxElement>("paintEditorFill").fill = item.color;
   showSelectedName(item);
   return true;
@@ -485,6 +558,7 @@ function applyLive(): void {
 }
 
 function cleanup(): void {
+  state?.unsubscribe?.();
   state = null;
   destroyDialog(dialogId);
   removePaintOverlay();
@@ -507,4 +581,4 @@ function getState(): PaintEditorState {
   return state;
 }
 
-export const PaintEditor = { open, apply, undoStroke };
+export const PaintEditor = { open, apply, undoStroke, getStatus };

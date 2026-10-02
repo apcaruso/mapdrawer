@@ -14,6 +14,9 @@ const STYLE = /* css */ `
     left: 10px;
     top: 50%;
     transform: translateY(-50%);
+    max-height: calc(100vh - 100px); /* clear of the options button; a short screen scrolls the palette */
+    overflow-y: auto;
+    scrollbar-width: none;
     z-index: 1;
     display: flex;
     flex-direction: column;
@@ -26,6 +29,7 @@ const STYLE = /* css */ `
     user-select: none;
   }
   #${PALETTE_ID} button {
+    flex-shrink: 0;
     width: 2.5em;
     height: 2.5em;
     display: grid;
@@ -55,6 +59,7 @@ const STYLE = /* css */ `
     cursor: default;
   }
   #${PALETTE_ID} hr {
+    flex-shrink: 0;
     width: 80%;
     margin: 2px auto;
     border: 0;
