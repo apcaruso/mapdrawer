@@ -161,6 +161,4 @@ export function warnIfServerless(): boolean {
 function removeWebOnlyControls(): void {
   findEl("getAppButton")?.remove();
   findEl("azgaarAssistant")?.closest("tr")?.remove();
-  findEl("saveToDropboxButton")?.remove();
-  findEl("loadFromDropbox")?.remove();
 }

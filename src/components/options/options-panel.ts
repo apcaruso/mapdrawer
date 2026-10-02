@@ -111,7 +111,7 @@ function initialize(): void {
     if (id === "newMapButton") Controllers.NewMapDialog.open();
     else if (id === "saveButton") showSavePane();
     else if (id === "exportButton") showExportPane();
-    else if (id === "loadButton") void showLoadPane();
+    else if (id === "loadButton") showLoadPane();
     else if (id === "zoomReset") resetZoom(1000);
     else if (id === "searchButton") Controllers.Omnibar.open();
   });

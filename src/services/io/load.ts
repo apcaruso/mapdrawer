@@ -13,7 +13,6 @@ import { resetZoom } from "@/components/zoom";
 import { GraphOverride } from "@/generators/graph-override";
 import { onLegendClick } from "@/renderers/draw-legend";
 import { zonesFilter } from "@/renderers/draw-zones";
-import { Services } from "@/services";
 import { declareFont } from "@/services/fonts";
 import { logStats } from "@/services/logging";
 import { clearCache, compareVersions, isValidVersion, parseMapVersion, VERSION } from "@/services/versioning";
@@ -25,33 +24,6 @@ async function quickLoad(): Promise<void> {
   else {
     tip("No map stored. Save map to browser storage first", true, "error", 2000);
     ERROR && console.error("No map stored");
-  }
-}
-
-async function loadFromDropbox(): Promise<void> {
-  const mapPath = ensureEl<HTMLInputElement>("loadFromDropboxSelect").value;
-
-  console.info("Loading map from Dropbox:", mapPath);
-  const blob = await Services.Cloud.load(mapPath);
-  uploadMap(blob);
-}
-
-async function createSharableDropboxLink(): Promise<void> {
-  const mapFile = (document.querySelector("#loadFromDropbox select") as HTMLSelectElement).value;
-  const sharableLink = ensureEl("sharableLink");
-  const sharableLinkContainer = ensureEl("sharableLinkContainer");
-
-  try {
-    const previewLink = await Services.Cloud.getLink(mapFile);
-    const directLink = previewLink.replace("www.dropbox.com", "dl.dropboxusercontent.com"); // DL allows CORS
-    const finalLink = `${location.origin}${location.pathname}?maplink=${directLink}`;
-
-    sharableLink.innerText = `${finalLink.slice(0, 45)}...`;
-    sharableLink.setAttribute("href", finalLink);
-    sharableLinkContainer.style.display = "block";
-  } catch (error) {
-    ERROR && console.error(error);
-    return tip("Dropbox API error. Can not create link.", true, "error", 2000);
   }
 }
 
@@ -719,8 +691,6 @@ async function parseLoadedData(data: string[], mapVersion: string | null): Promi
 
 export const Load = {
   quickLoad,
-  loadFromDropbox,
-  createSharableDropboxLink,
   loadMapFromURL,
   showUploadErrorMessage,
   uploadMap

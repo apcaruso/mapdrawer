@@ -718,6 +718,11 @@ workflow fluido e l'assenza di bug invalidanti. La "mappa casuale" completa rest
   pubblico [apcaruso/mapdrawer](https://github.com/apcaruso/mapdrawer), pubblicato su
   [apcaruso.github.io/mapdrawer](https://apcaruso.github.io/mapdrawer/) a ogni push su `main`. Non riceve gli
   aggiornamenti dell'originale, per scelta.
+  - L'app si chiama MapDrawer: titolo della pagina, schermata di caricamento, nome dell'app installabile.
+  - Dropbox è stato tolto: funzionava solo con l'app Dropbox registrata da Azgaar. Ctrl+C non salva più su Dropbox
+    e torna a copiare.
+  - L'offerta della "Desktop App" è nascosta: scaricava il programma originale.
+  - Google Analytics dell'originale è stato tolto.
 - Lingua dell'interfaccia: oggi è inglese. Restiamo in inglese o aggiungiamo l'italiano?
 - Densità di default delle mappe disegnate, da decidere con le misure dello Step 1.
 - Quali moduli nascondere di default (economia, militare, journeys, battle screen…)?

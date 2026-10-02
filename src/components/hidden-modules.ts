@@ -24,7 +24,9 @@ const HIDDEN_CONTROLS = [
   "exportCsvGoods",
   "exportCsvMarkets",
   "exportCsvMilitary",
-  "exportCsvRegiments"
+  "exportCsvRegiments",
+  "getApp", // the desktop app it offers is the original program, not this one
+  "getAppButton"
 ];
 
 for (const layer of HIDDEN_LAYERS) LAYER_TOGGLES.delete(layer);

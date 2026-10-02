@@ -44,7 +44,6 @@ declare global {
   var FlatQueue: any;
   var RgbQuant: any; // image quantization, used by the heightmap image converter
   var THREE: any; // lazy-loaded by the 3d view
-  var Dropbox: any; // dropbox-sdk, loaded on demand from libs/dropbox-sdk.min.js
   var ldb: {
     get: (key: string) => Promise<Blob | undefined>;
     set: (key: string, value: Blob) => Promise<void>;

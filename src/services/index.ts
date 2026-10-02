@@ -8,7 +8,6 @@ import "./versioning";
 
 export const Services = createRegistry({
   AppOffer: () => import("@/services/app-offer").then(m => m.AppOffer),
-  Cloud: () => import("@/services/io/cloud").then(m => m.CloudStorage),
   ExportJson: () => import("@/services/io/export-json").then(m => m.ExportJson),
   ExportMap: () => import("@/services/io/export").then(m => m.ExportMap),
   Load: () => import("@/services/io/load").then(m => m.Load),

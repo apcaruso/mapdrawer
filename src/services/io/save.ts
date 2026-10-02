@@ -1,11 +1,10 @@
-// Save the whole .map project to storage, machine or cloud
+// Save the whole .map project to browser storage or the machine
 
 import { closeDialogs } from "@/components/dialog/dialog-helpers";
 import { Layers } from "@/components/layers";
 import { Notes } from "@/components/notes";
 import { tip } from "@/components/tooltips";
 import { GraphOverride } from "@/generators/graph-override";
-import { Services } from "@/services";
 import { getUsedFonts } from "@/services/fonts";
 import { savedMessage } from "@/services/platform";
 import { VERSION } from "@/services/versioning";
@@ -15,7 +14,6 @@ type Writer = (mapData: string, filename: string) => void | Promise<void>;
 
 const toStorage = (): Promise<void> => save(mapData => writeToStorage(mapData, true));
 const toMachine = (): Promise<void> => save(writeToMachine);
-const toDropbox = (): Promise<void> => save(writeToDropbox);
 
 async function save(write: Writer): Promise<void> {
   // painting (2) applies every stroke as it ends, so the map is whole between strokes
@@ -221,9 +219,4 @@ function writeToMachine(mapData: string, filename: string): void {
   setTimeout(() => window.URL.revokeObjectURL(URL), 5000);
 }
 
-async function writeToDropbox(mapData: string, filename: string): Promise<void> {
-  await Services.Cloud.save(filename, mapData);
-  tip("Map is saved to your Dropbox", true, "success", 8000);
-}
-
-export const Save = { toStorage, toMachine, toDropbox, prepareMapData, writeToStorage };
+export const Save = { toStorage, toMachine, prepareMapData, writeToStorage };

@@ -75,7 +75,6 @@ export const MAP_COMMANDS: MapCommand[] = [
     aliases: "browser storage",
     run: () => Services.Save.toStorage()
   },
-  { id: "saveToDropbox", name: "Save Map to Dropbox", aliases: "cloud", run: () => Services.Save.toDropbox() },
   { id: "loadFromURL", name: "Load Map from URL", aliases: "open link", run: () => loadURL() },
   { id: "saveButton", name: "Show Save Panel", aliases: "store dialog", run: () => showSavePane() },
   { id: "loadButton", name: "Load Map", aliases: "open dialog", run: () => showLoadPane() },

@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Azgaar's Fantasy Map Generator</title>
-    <meta name="application-name" content="Azgaar's Fantasy Map Generator" />
+    <title>MapDrawer</title>
+    <meta name="application-name" content="MapDrawer" />
     <meta name="author" content="Azgaar" />
     <meta
       name="description"
       content="Free web app that helps fantasy writers, game masters, and cartographers create and edit fantasy maps"
     />
     <meta property="og:url" content="https://apcaruso.github.io/mapdrawer/" />
-    <meta property="og:title" content="Azgaar's Fantasy Map Generator" />
+    <meta property="og:title" content="MapDrawer" />
     <meta
       property="og:description"
       content="Free web app that helps fantasy writers, game masters, and cartographers create and edit fantasy maps"
@@ -20,7 +20,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta property="twitter:domain" content="apcaruso.github.io" />
     <meta property="twitter:url" content="https://apcaruso.github.io/mapdrawer/" />
-    <meta name="twitter:title" content="Azgaar's Fantasy Map Generator" />
+    <meta name="twitter:title" content="MapDrawer" />
     <meta
       name="twitter:description"
       content="Free web app that helps fantasy writers, game masters, and cartographers create and edit fantasy maps"
@@ -336,8 +336,8 @@
         <use href="#defs-compass-rose" x="50%" y="50%" />
       </svg>
       <div id="loading-typography">
-        <div id="titleName">Azgaar's</div>
-        <div id="title">Fantasy Map Generator</div>
+        <div id="titleName">‎</div>
+        <div id="title">MapDrawer</div>
         <div id="versionText">‎ ‎</div>
         <p id="loading-text">LOADING<span>.</span><span>.</span><span>.</span></p>
       </div>
@@ -588,14 +588,6 @@
           >
             machine
           </button>
-          <button
-            id="saveToDropboxButton"
-            onclick="window.Services.Save.toDropbox()"
-            data-tip="Save map file to your Dropbox"
-            data-shortcut="Ctrl + C"
-          >
-            dropbox
-          </button>
           <button onclick="window.Services.Save.toStorage()" data-tip="Save the project to browser storage only" data-shortcut="F6">
             browser
           </button>
@@ -620,34 +612,6 @@
           <button onclick="window.Services.Load.quickLoad()" data-tip="Load map from browser storage (if saved before)">storage</button>
         </div>
         <p>Click on <i>storage</i> to open the last saved map.</p>
-        <div id="loadFromDropbox">
-          <p style="margin-bottom: 0.3em">
-            Or load from your Dropbox account
-            <button
-              id="dropboxConnectButton"
-              onclick="connectToDropbox()"
-              data-tip="Connect your Dropbox account to be able to load maps from it"
-            >
-              Connect
-            </button>
-          </p>
-          <select id="loadFromDropboxSelect" style="width: 22em"></select>
-          <div id="loadFromDropboxButtons" style="margin-bottom: 0.6em">
-            <button onclick="window.Services.Load.loadFromDropbox()" data-tip="Load map file (.map or .gz) from your Dropbox">Load</button>
-            <button
-              onclick="window.Services.Load.createSharableDropboxLink()"
-              data-tip="Select file and create a link to share with your friends"
-            >
-              Share
-            </button>
-          </div>
-          <div style="margin-top: 0.3em">
-            <div id="sharableLinkContainer" style="display: none">
-              <a id="sharableLink" target="_blank"></a>
-              <i data-tip="Copy link to the clipboard" onclick="copyLinkToClipboard()" class="icon-clone pointer"></i>
-            </div>
-          </div>
-        </div>
       </div>
       <div id="exportToPngTilesScreen" style="display: none" class="dialog">
         <p>Map will be split into tiles and downloaded as a single zip file. Avoid saving too large images</p>
