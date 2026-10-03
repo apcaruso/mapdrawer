@@ -197,7 +197,8 @@ Tempi di commit: catena montuosa 65 ms, fiume 15 ms.
   - **cultura** e **religione**: il centro.
   - La creazione riusa la logica degli editor, estratta in `createStateAt` e `createProvinceAt`, oppure i generatori
     (`Cultures.add`, `Religions.add`). Ogni creazione è un passo di Annulla.
-- **Rinomina inline** dell'elemento selezionato (per uno stato è il nome breve: la forma si aggiunge da sola).
+- **Rinomina inline** dell'elemento selezionato (per uno stato è il nome breve: la forma si aggiunge da sola; tolta nello
+  Step 9).
 - **Espandi**: ogni regione cresce nella terra libera che raggiunge prima, per la via più economica (bioma, rilievo).
   - Gli stati vanno nella terra neutrale, le culture nelle wildlands, le religioni nella terra senza religione, le
     province nella terra del proprio stato.
@@ -424,6 +425,13 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
   - Tutte le scelte fatte in un'apertura del selettore sono un solo passo di Annulla. La storia ora sa unire i passi
     consecutivi con la stessa chiave (`merge`).
   - Esc chiude il selettore, che prima restava aperto e bloccava i clic.
+- **Il nome di uno stato è quello che si scrive.** Cambiare il testo dell'etichetta e poi ridipingere riportava il nome
+  vecchio con la forma, per esempio "Duchy of …": il tratto rifà l'etichetta da capo.
+  - Niente più forme: un nuovo stato non riceve "Duchy of", "Kingdom of"…, e rinominarlo dal pannello di pittura,
+    dall'editor degli stati o dall'etichetta toglie la forma (`States.rename`).
+  - Il testo scritto nell'etichetta rinomina lo stato; "|" spezza solo le righe.
+  - L'editor degli stati non ha più la colonna Form, e il dialogo del nome ha un solo campo.
+  - Le mappe disegnate prima mostrano ancora il nome con la forma, finché non si rinomina lo stato.
 - **Piccoli difetti dalla stessa prova.**
   - Una cultura creata a mano non aveva la forma dello scudo e segnalava un errore a ogni stemma.
   - La colonna Treasury dell'editor degli stati, che appartiene all'economia nascosta, mostrava "NaN". Ora è

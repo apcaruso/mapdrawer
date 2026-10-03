@@ -396,8 +396,9 @@ function hideTextSection(): void {
 function changeText(): void {
   const input = ensureEl<HTMLInputElement>("labelText").value;
   label.text = input;
+  const stateName = input.replaceAll("|", " ").trim(); // "|" only breaks the label into lines
+  if (label.type === "state" && stateName) States.rename(pack.states[label.entityId], stateName);
   applyLabelChanges();
-  if (label.type === "state") tip("Use States Editor to change the actual state name, not just a label", false, "warn");
   if (label.type === "province")
     tip("Use Provinces Editor to change the actual province name, not just a label", false, "warn");
 }

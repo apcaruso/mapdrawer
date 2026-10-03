@@ -28,22 +28,9 @@ import { EmblemRenderer } from "@/renderers/emblems/renderer";
 import { fog, unfog } from "@/renderers/overlays/fogging";
 import { highlightElement, highlightOutline } from "@/renderers/overlays/highlight";
 import type { Point } from "@/types/global";
-import { applyOption, downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
+import { downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
 import { getDistinctColor } from "@/utils/colorUtils";
-import {
-  ensureEl,
-  findEl,
-  formatPrice,
-  getAdjective,
-  getMixedColor,
-  getPointer,
-  isLand,
-  P,
-  ra,
-  rand,
-  rn,
-  si
-} from "../utils";
+import { ensureEl, findEl, formatPrice, getMixedColor, getPointer, isLand, P, ra, rand, rn, si } from "../utils";
 
 const dialogId = "statesEditor" as const;
 const LEGEND_NAME = "States"; // the legend box this editor toggles
@@ -55,18 +42,10 @@ const columns: EditorColumn<State>[] = [
     label: "State",
     width: "7em",
     permanent: true,
-    sortBy: s => s.name || "",
+    sortBy: s => getStateName(s),
     sortType: "alpha"
   },
   { key: "emblem", width: "1.4em" },
-  {
-    key: "form",
-    label: "Form",
-    width: "8em",
-    mobileHidden: true,
-    sortBy: s => (s.i ? s.formName || "" : ""),
-    sortType: "alpha"
-  },
   {
     key: "capital",
     label: "Capital",
@@ -333,7 +312,6 @@ function renderStatesPage(view: TableView<State>): void {
         data-burgs=${s.burgs}
         data-treasury="0"
         data-color=""
-        data-form=""
         data-capital=""
         data-culture=""
         data-type=""
@@ -344,7 +322,6 @@ function renderStatesPage(view: TableView<State>): void {
           s.name
         }" readonly data-col="name" />
         <svg class="coaIcon placeholder" viewBox="0 0 200 200" data-col="emblem"></svg>
-        <input class="stateForm placeholder" value="none" data-col="form" />
         <div data-col="capital">
           <span class="icon-star-empty placeholder"></span>
           <div class="stateCapital placeholder"></div>
@@ -386,8 +363,7 @@ function renderStatesPage(view: TableView<State>): void {
     lines += /* html */ `<div
       class="states"
       data-id=${s.i}
-      data-name="${s.name}"
-      data-form="${s.formName}"
+      data-name="${getStateName(s)}"
       data-capital="${capital}"
       data-color="${s.color}"
       data-cells=${s.cells}
@@ -400,11 +376,8 @@ function renderStatesPage(view: TableView<State>): void {
       data-expansionism=${s.expansionism}
     >
       <fill-box fill="${s.color}" data-col="color"></fill-box>
-      <input data-tip="State name. Click to change" class="stateName name pointer" value="${s.name}" readonly data-col="name" />
+      <input data-tip="State name. Click to change" class="stateName name pointer" value="${getStateName(s)}" readonly data-col="name" />
       <svg data-tip="Click to show and edit state emblem" class="coaIcon pointer" viewBox="0 0 200 200" data-col="emblem"><use href="#stateCOA${s.i}"></use></svg>
-      <input data-tip="State form name. Click to change" class="stateForm name pointer" value="${
-        s.formName
-      }" readonly data-col="form" />
       <div data-col="capital">
         <span data-tip="State capital. Click to zoom into view" class="icon-star-empty pointer"></span>
         <div data-tip="Capital name" class="stateCapital">${capital}</div>
@@ -527,31 +500,19 @@ function stateChangeFill(fillBox: FillBoxElement): void {
   void Controllers.ColorPicker.open(currentFill, callback);
 }
 
-function editStateName(state: number): void {
+function editStateName(stateId: number): void {
   renderNameEditor();
-  const stateNameEditorCustomForm = ensureEl<HTMLInputElement>("stateNameEditorCustomForm");
-  const stateNameEditorSelectForm = ensureEl<HTMLSelectElement>("stateNameEditorSelectForm");
-
-  // reset input value and close add mode
-  stateNameEditorCustomForm.value = "";
-  const addModeActive = stateNameEditorCustomForm.style.display === "inline-block";
-  if (addModeActive) {
-    stateNameEditorCustomForm.style.display = "none";
-    stateNameEditorSelectForm.style.display = "inline-block";
-  }
-
-  const s = pack.states[state];
-  ensureEl("stateNameEditor").dataset.state = String(state);
-  ensureEl<HTMLInputElement>("stateNameEditorShort").value = s.name || "";
-  applyOption(stateNameEditorSelectForm, s.formName || "");
-  ensureEl<HTMLInputElement>("stateNameEditorFull").value = s.fullName || "";
+  const input = ensureEl<HTMLInputElement>("stateNameEditorName");
+  input.value = getStateName(pack.states[stateId]);
 
   $("#stateNameEditor").dialog({
     resizable: false,
     title: "Change state name",
     buttons: {
       Apply: function (this: HTMLElement) {
-        applyNameChange(s);
+        const name = input.value.trim();
+        if (name && name !== getStateName(pack.states[stateId]))
+          recordStateChange("Rename state", () => renameState(stateId, name));
         $(this).dialog("close");
       },
       Cancel: function (this: HTMLElement) {
@@ -562,213 +523,26 @@ function editStateName(state: number): void {
     close: closeStateNameEditor
   });
 
-  ensureEl("stateNameEditorShortCulture").addEventListener("click", regenerateShortNameCulture);
-  ensureEl("stateNameEditorShortRandom").addEventListener("click", regenerateShortNameRandom);
-  ensureEl("stateNameEditorShortSpeak").addEventListener("click", () =>
-    speak(ensureEl<HTMLInputElement>("stateNameEditorShort").value)
-  );
-  ensureEl("stateNameEditorAddForm").addEventListener("click", addCustomForm);
-  ensureEl("stateNameEditorCustomForm").addEventListener("change", addCustomForm);
-  ensureEl("stateNameEditorFullRegenerate").addEventListener("click", regenerateFullName);
-  ensureEl("stateNameEditorFullSpeak").addEventListener("click", () =>
-    speak(ensureEl<HTMLInputElement>("stateNameEditorFull").value)
-  );
-
-  function regenerateShortNameCulture() {
-    const state = +ensureEl("stateNameEditor").dataset.state!;
-    const culture = pack.states[state].culture;
-    const name = Names.getState(Names.getCultureShort(culture), culture);
-    ensureEl<HTMLInputElement>("stateNameEditorShort").value = name;
-  }
-
-  function regenerateShortNameRandom() {
+  ensureEl("stateNameEditorSpeak").addEventListener("click", () => speak(input.value));
+  ensureEl("stateNameEditorCulture").addEventListener("click", () => {
+    const { culture } = pack.states[stateId];
+    input.value = Names.getState(Names.getCultureShort(culture), culture);
+  });
+  ensureEl("stateNameEditorRandom").addEventListener("click", () => {
     const base = rand(Names.nameBases.length - 1);
-    const name = Names.getState(Names.getBase(base), undefined as unknown as number, base);
-    ensureEl<HTMLInputElement>("stateNameEditorShort").value = name;
-  }
-
-  function addCustomForm() {
-    const value = stateNameEditorCustomForm.value;
-    const addModeActive = stateNameEditorCustomForm.style.display === "inline-block";
-    stateNameEditorCustomForm.style.display = addModeActive ? "none" : "inline-block";
-    stateNameEditorSelectForm.style.display = addModeActive ? "inline-block" : "none";
-    if (value && addModeActive) applyOption(stateNameEditorSelectForm, value);
-    stateNameEditorCustomForm.value = "";
-  }
-
-  function regenerateFullName() {
-    const short = ensureEl<HTMLInputElement>("stateNameEditorShort").value;
-    const form = ensureEl<HTMLSelectElement>("stateNameEditorSelectForm").value;
-    ensureEl<HTMLInputElement>("stateNameEditorFull").value = getFullName();
-
-    function getFullName() {
-      if (!form) return short;
-      if (!short && form) return `The ${form}`;
-      const $regen = ensureEl("stateNameEditorFullRegenerate");
-      const tick = +$regen.dataset.tick!;
-      $regen.dataset.tick = String(tick + 1);
-      return tick % 2 ? `${getAdjective(short)} ${form}` : `${form} of ${short}`;
-    }
-  }
-
-  function applyNameChange(s: any) {
-    const nameInput = ensureEl<HTMLInputElement>("stateNameEditorShort");
-    const formSelect = ensureEl<HTMLSelectElement>("stateNameEditorSelectForm");
-    const fullNameInput = ensureEl<HTMLInputElement>("stateNameEditorFull");
-
-    const nameChanged = nameInput.value !== s.name;
-    const formChanged = formSelect.value !== s.formName;
-    const fullNameChanged = fullNameInput.value !== s.fullName;
-    const changed = nameChanged || formChanged || fullNameChanged;
-
-    if (formChanged) {
-      const selected = formSelect.selectedOptions[0];
-      const form = selected.parentElement?.getAttribute("label") || null;
-      if (form) s.form = form;
-    }
-
-    s.name = nameInput.value;
-    s.formName = formSelect.value;
-    s.fullName = fullNameInput.value;
-    if (changed && ensureEl<HTMLInputElement>("stateNameEditorUpdateLabel").checked) {
-      if (s.label?.text) delete s.label.text;
-      Layers.draw("labels");
-    }
-    refreshStatesEditor();
-  }
+    input.value = Names.getState(Names.getBase(base), undefined as unknown as number, base);
+  });
 }
 
 function renderNameEditor(): void {
   destroyDialog("stateNameEditor");
-  const nameEditorHtml = /* html */ `<div id="stateNameEditor" class="dialog" data-state="0">
+  const nameEditorHtml = /* html */ `<div id="stateNameEditor" class="dialog">
       <div>
-        <div data-tip="State short name" class="label">Short name:</div>
-        <input
-          id="stateNameEditorShort"
-          data-tip="Type to change the short name"
-          autocorrect="off"
-          spellcheck="false"
-          style="width: 11em"
-        />
-        <span id="stateNameEditorShortSpeak" data-tip="Speak the name. You can change voice and language in options" class="speaker">🔊</span>
-        <span
-          id="stateNameEditorShortCulture"
-          data-tip="Generate culture-specific name"
-          class="icon-book pointer"
-        ></span>
-        <span id="stateNameEditorShortRandom" data-tip="Generate random name" class="icon-globe pointer"></span>
-      </div>
-      <div data-tip="Select form name">
-        <div data-tip="State form name" class="label">Form name:</div>
-        <select id="stateNameEditorSelectForm" style="width: 11em">
-          <option value="">blank</option>
-          <optgroup label="Monarchy">
-            <option value="Beylik">Beylik</option>
-            <option value="Despotate">Despotate</option>
-            <option value="Dominion">Dominion</option>
-            <option value="Duchy">Duchy</option>
-            <option value="Emirate">Emirate</option>
-            <option value="Empire">Empire</option>
-            <option value="Horde">Horde</option>
-            <option value="Grand Duchy">Grand Duchy</option>
-            <option value="Heptarchy">Heptarchy</option>
-            <option value="Khaganate">Khaganate</option>
-            <option value="Khanate">Khanate</option>
-            <option value="Kingdom">Kingdom</option>
-            <option value="Marches">Marches</option>
-            <option value="Principality">Principality</option>
-            <option value="Satrapy">Satrapy</option>
-            <option value="Shogunate">Shogunate</option>
-            <option value="Sultanate">Sultanate</option>
-            <option value="Tsardom">Tsardom</option>
-            <option value="Ulus">Ulus</option>
-            <option value="Viceroyalty">Viceroyalty</option>
-          </optgroup>
-          <optgroup label="Republic">
-            <option value="Chancellery">Chancellery</option>
-            <option value="City-state">City-state</option>
-            <option value="Diarchy">Diarchy</option>
-            <option value="Federation">Federation</option>
-            <option value="Free City">Free City</option>
-            <option value="Most Serene Republic">Most Serene Republic</option>
-            <option value="Oligarchy">Oligarchy</option>
-            <option value="Protectorate">Protectorate</option>
-            <option value="Republic">Republic</option>
-            <option value="Tetrarchy">Tetrarchy</option>
-            <option value="Trade Company">Trade Company</option>
-            <option value="Triumvirate">Triumvirate</option>
-          </optgroup>
-          <optgroup label="Union">
-            <option value="Confederacy">Confederacy</option>
-            <option value="Confederation">Confederation</option>
-            <option value="Conglomerate">Conglomerate</option>
-            <option value="Commonwealth">Commonwealth</option>
-            <option value="League">League</option>
-            <option value="Union">Union</option>
-            <option value="United Hordes">United Hordes</option>
-            <option value="United Kingdom">United Kingdom</option>
-            <option value="United Provinces">United Provinces</option>
-            <option value="United Republic">United Republic</option>
-            <option value="United States">United States</option>
-            <option value="United Tribes">United Tribes</option>
-          </optgroup>
-          <optgroup label="Theocracy">
-            <option value="Bishopric">Bishopric</option>
-            <option value="Brotherhood">Brotherhood</option>
-            <option value="Caliphate">Caliphate</option>
-            <option value="Diocese">Diocese</option>
-            <option value="Divine Duchy">Divine Duchy</option>
-            <option value="Divine Grand Duchy">Divine Grand Duchy</option>
-            <option value="Divine Principality">Divine Principality</option>
-            <option value="Divine Kingdom">Divine Kingdom</option>
-            <option value="Divine Empire">Divine Empire</option>
-            <option value="Eparchy">Eparchy</option>
-            <option value="Exarchate">Exarchate</option>
-            <option value="Holy State">Holy State</option>
-            <option value="Imamah">Imamah</option>
-            <option value="Patriarchate">Patriarchate</option>
-            <option value="Theocracy">Theocracy</option>
-          </optgroup>
-          <optgroup label="Anarchy">
-            <option value="Commune">Commune</option>
-            <option value="Community">Community</option>
-            <option value="Council">Council</option>
-            <option value="Free Territory">Free Territory</option>
-            <option value="Tribes">Tribes</option>
-          </optgroup>
-        </select>
-        <input
-          id="stateNameEditorCustomForm"
-          placeholder="type form name"
-          data-tip="Enter custom form name"
-          style="display: none; width: 11em"
-        />
-        <span
-          id="stateNameEditorAddForm"
-          data-tip="Click to add custom state form name to the list"
-          class="icon-plus pointer"
-        ></span>
-      </div>
-      <div>
-        <div data-tip="State full name" class="label">Full name:</div>
-        <input
-          id="stateNameEditorFull"
-          data-tip="Type to change the full name"
-          autocorrect="off"
-          spellcheck="false"
-          style="width: 11em"
-        />
-        <span id="stateNameEditorFullSpeak" data-tip="Speak the name. You can change voice and language in options" class="speaker">🔊</span>
-        <span
-          id="stateNameEditorFullRegenerate"
-          data-tip="Click to re-generate full name"
-          data-tick="0"
-          class="icon-arrows-cw pointer"
-        ></span>
-      </div>
-      <div data-tip="Uncheck to not update state label on name change" style="padding-block: 0.2em">
-        <input id="stateNameEditorUpdateLabel" class="checkbox" type="checkbox" checked />
-        <label for="stateNameEditorUpdateLabel" class="checkbox-label"><i>Update label on Apply</i></label>
+        <div data-tip="The name of the state, written on the map as it is typed" class="label">Name:</div>
+        <input id="stateNameEditorName" autocorrect="off" spellcheck="false" style="width: 14em" />
+        <span id="stateNameEditorSpeak" data-tip="Speak the name. You can change voice and language in options" class="speaker">🔊</span>
+        <span id="stateNameEditorCulture" data-tip="Generate culture-specific name" class="icon-book pointer"></span>
+        <span id="stateNameEditorRandom" data-tip="Generate random name" class="icon-globe pointer"></span>
       </div>
     </div>`;
   ensureEl("dialogs").insertAdjacentHTML("beforeend", nameEditorHtml);
@@ -1255,7 +1029,7 @@ function openPaintEditor(): void {
 function paint(onClose: () => void): Promise<boolean> {
   Layers.show("states");
   const adjustLabels = findEl<HTMLInputElement>("adjustLabels")?.checked ?? true;
-  const paintItem = (state: State) => ({ id: state.i, name: state.name, color: state.color || "#ffffff" });
+  const paintItem = (state: State) => ({ id: state.i, name: getStateName(state), color: state.color || "#ffffff" });
 
   return Controllers.PaintEditor.open({
     title: "Paint States",
@@ -1282,7 +1056,7 @@ function paint(onClose: () => void): Promise<boolean> {
         if (document.getElementById(dialogId)) refreshStatesEditor();
       }
     },
-    renameTip: "The short name of the state: its form, such as Kingdom of, is added to it",
+    renameTip: "The name of the state, written on the map as it is typed",
     actions: [
       {
         label: "Expand",
@@ -1322,10 +1096,15 @@ function recordStateChange<T>(label: string, change: () => T): T {
   return UndoHistory.record({ label, domains: STATE_DOMAINS, layers: STATE_LAYERS }, change);
 }
 
+/** the name shown for a state; maps drawn before forms were dropped keep theirs, such as "Duchy of Ardenia" */
+function getStateName(state: State): string {
+  return state.fullName || state.name;
+}
+
 function renameState(stateId: number, name: string): void {
   const state = pack.states[stateId];
-  state.name = name;
-  state.fullName = States.getFullName(state);
+  States.rename(state, name);
+  if (state.label?.text) delete state.label.text;
   Layers.draw("labels");
   if (document.getElementById(dialogId)) refreshStatesEditor();
 }
@@ -1633,6 +1412,8 @@ function createStateAt(point: Point): number | undefined {
   states.push({
     i: newState,
     name,
+    fullName: name,
+    formName: "",
     diplomacy,
     provinces: [],
     color,
@@ -1645,11 +1426,11 @@ function createStateAt(point: Point): number | undefined {
     alert: 1,
     coa
   });
+  Object.assign(states[newState], States.defineTaxRates(states[newState]));
 
   States.getPoles();
   States.findNeighbors();
   States.collectStatistics();
-  States.defineStateForms([newState]);
   adjustProvinces([cells.province[center]]);
 
   Layers.draw("labels");

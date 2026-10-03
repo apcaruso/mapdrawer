@@ -847,6 +847,11 @@ class StatesModule {
     return adjName ? `${getAdjective(state.name)} ${state.formName}` : `${state.formName} of ${state.name}`;
   }
 
+  /** a drawn state is called just by the name it is given, with no form such as "Duchy of" */
+  rename(state: State, name: string) {
+    Object.assign(state, { name, fullName: name, formName: "" });
+  }
+
   collectTaxes() {
     const { states, burgs, deals } = pack;
     if (!states.length) return;
