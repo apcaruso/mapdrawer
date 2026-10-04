@@ -352,6 +352,7 @@ async function parseLoadedData(data: string[], mapVersion: string | null): Promi
     if (data[45]) goodIconsDefs?.insertAdjacentHTML("beforeend", data[45]);
 
     await resolveVersionConflicts(mapVersion!, data);
+    for (const state of pack.states) if (state.formName) States.dropForm(state);
 
     const styleRecord = data[48] ? safeParseJSON(data[48]) : undefined; // data[48] should be already migrated by auto-update
     Styles.set(Styles.parse(styleRecord));

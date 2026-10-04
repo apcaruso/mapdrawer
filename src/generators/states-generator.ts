@@ -1,4 +1,4 @@
-import { mean, median, quadtree, sum } from "d3";
+import { mean, quadtree, sum } from "d3";
 import { Emblems } from "@/generators/emblems-generator";
 import type { Emblem } from "@/types/emblems";
 import {
@@ -12,7 +12,6 @@ import {
   minmax,
   P,
   ra,
-  rand,
   rn,
   rw,
   trimVowels
@@ -669,142 +668,23 @@ class StatesModule {
     TIME && console.timeEnd("generateDiplomacy");
   }
 
-  // select a forms for listed or all valid states
+  /** pick the government of listed or all valid states: it sets their taxes, never their name */
   defineStateForms(list: number[] | null = null) {
-    const states = pack.states.filter(s => s.i && !s.removed && !s.lock);
-    if (states.length < 1) return;
-
     const generic = { Monarchy: 25, Republic: 2, Union: 1 };
     const naval = { Monarchy: 25, Republic: 8, Union: 3 };
 
-    const medianState = median(pack.states.map(s => s.area))!;
-    const empireMin = states.map(s => s.area).sort((a = 0, b = 0) => b - a)[
-      Math.max(Math.ceil(states.length ** 0.4) - 2, 0)
-    ]!;
-    const expTiers = pack.states.map(s => {
-      let tier = Math.min(Math.floor((s.area! / medianState) * 2.6), 4);
-      if (tier === 4 && s.area! < empireMin) tier = 3;
-      return tier;
-    });
-
-    const monarchy = ["Duchy", "Grand Duchy", "Principality", "Kingdom", "Empire"]; // per expansionism tier
-    const republic = {
-      Republic: 75,
-      Federation: 4,
-      "Trade Company": 4,
-      "Most Serene Republic": 2,
-      Oligarchy: 2,
-      Tetrarchy: 1,
-      Triumvirate: 1,
-      Diarchy: 1,
-      Junta: 1
-    }; // weighted random
-    const union = {
-      Union: 3,
-      League: 4,
-      Confederation: 1,
-      "United Kingdom": 1,
-      "United Republic": 1,
-      "United Provinces": 2,
-      Commonwealth: 1,
-      Heptarchy: 1
-    }; // weighted random
-    const theocracy = {
-      Theocracy: 20,
-      Brotherhood: 1,
-      Thearchy: 2,
-      See: 1,
-      "Holy State": 1
-    };
-    const anarchy = {
-      "Free Territory": 2,
-      Council: 3,
-      Commune: 1,
-      Community: 1
-    };
-
-    for (const s of states) {
-      if (list && !list.includes(s.i)) continue;
-      const tier = expTiers[s.i];
+    for (const s of pack.states) {
+      if (!s.i || s.removed || s.lock || (list && !list.includes(s.i))) continue;
 
       const religion = pack.cells.religion[s.center];
       const isTheocracy =
         (religion && pack.religions[religion].expansion === "state") ||
         (P(0.1) && ["Organized", "Cult"].includes(pack.religions[religion].type));
-      const isAnarchy = P(0.01 - tier / 500);
 
       if (isTheocracy) s.form = "Theocracy";
-      else if (isAnarchy) s.form = "Anarchy";
+      else if (P(0.005)) s.form = "Anarchy";
       else s.form = s.type === "Naval" ? rw(naval) : rw(generic);
-
-      const selectForm = (s: any, tier: number) => {
-        const base = pack.cultures[s.culture].base;
-
-        if (s.form === "Monarchy") {
-          const form = monarchy[tier];
-          // Default name depends on exponent tier, some culture bases have special names for tiers
-          if (s.diplomacy) {
-            if (
-              form === "Duchy" &&
-              s.neighbors.length > 1 &&
-              rand(6) < s.neighbors.length &&
-              s.diplomacy.includes("Vassal")
-            )
-              return "Marches"; // some vassal duchies on borderland
-            if (base === 1 && P(0.3) && s.diplomacy.includes("Vassal")) return "Dominion"; // English vassals
-            if (P(0.3) && s.diplomacy.includes("Vassal")) return "Protectorate"; // some vassals
-          }
-
-          if (base === 31 && (form === "Empire" || form === "Kingdom")) return "Khanate"; // Mongolian
-          if (base === 16 && form === "Principality") return "Beylik"; // Turkic
-          if (base === 5 && (form === "Empire" || form === "Kingdom")) return "Tsardom"; // Ruthenian
-          if (base === 16 && (form === "Empire" || form === "Kingdom")) return "Khaganate"; // Turkic
-          if (base === 12 && (form === "Kingdom" || form === "Grand Duchy")) return "Shogunate"; // Japanese
-          if ([18, 17].includes(base) && form === "Empire") return "Caliphate"; // Arabic, Berber
-          if (base === 18 && (form === "Grand Duchy" || form === "Duchy")) return "Emirate"; // Arabic
-          if (base === 7 && (form === "Grand Duchy" || form === "Duchy")) return "Despotate"; // Greek
-          if (base === 31 && (form === "Grand Duchy" || form === "Duchy")) return "Ulus"; // Mongolian
-          if (base === 16 && (form === "Grand Duchy" || form === "Duchy")) return "Horde"; // Turkic
-          if (base === 24 && (form === "Grand Duchy" || form === "Duchy")) return "Satrapy"; // Iranian
-          return form;
-        }
-
-        if (s.form === "Republic") {
-          // Default name is from weighted array, special case for small states with only 1 burg
-          if (tier < 2 && s.burgs === 1) {
-            if (trimVowels(s.name) === trimVowels(pack.burgs[s.capital].name!)) {
-              s.name = pack.burgs[s.capital].name;
-              return "Free City";
-            }
-            if (P(0.3)) return "City-state";
-          }
-          return rw(republic);
-        }
-
-        if (s.form === "Union") return rw(union);
-        if (s.form === "Anarchy") return rw(anarchy);
-
-        if (s.form === "Theocracy") {
-          // European
-          if ([0, 1, 2, 3, 4, 6, 8, 9, 13, 15, 20].includes(base)) {
-            if (P(0.1)) return `Divine ${monarchy[tier]}`;
-            if (tier < 2 && P(0.5)) return "Diocese";
-            if (tier < 2 && P(0.5)) return "Bishopric";
-          }
-          if (P(0.9) && [7, 5].includes(base)) {
-            // Greek, Ruthenian
-            if (tier < 2) return "Eparchy";
-            if (tier === 2) return "Exarchate";
-            if (tier > 2) return "Patriarchate";
-          }
-          if (P(0.9) && [21, 16].includes(base)) return "Imamah"; // Nigerian, Turkish
-          if (tier > 2 && P(0.8) && [18, 17, 28].includes(base)) return "Caliphate"; // Arabic, Berber, Swahili
-          return rw(theocracy);
-        }
-      };
-
-      s.formName = selectForm(s, tier);
-      s.fullName = this.getFullName(s);
+      this.rename(s, s.name);
 
       const taxes = this.defineTaxRates(s);
       s.salesTax = taxes.salesTax;
@@ -820,36 +700,16 @@ class StatesModule {
     };
   }
 
-  getFullName(state: State) {
-    // state forms requiring Adjective + Name, all other forms use scheme Form + Of + Name
-    const adjForms = [
-      "Empire",
-      "Sultanate",
-      "Khaganate",
-      "Shogunate",
-      "Caliphate",
-      "Despotate",
-      "Theocracy",
-      "Oligarchy",
-      "Union",
-      "Confederation",
-      "Trade Company",
-      "League",
-      "Tetrarchy",
-      "Triumvirate",
-      "Diarchy",
-      "Horde",
-      "Marches"
-    ];
-    if (!state.formName) return state.name;
-    if (!state.name && state.formName) return `The ${state.formName}`;
-    const adjName = adjForms.includes(state.formName) && !/-| /.test(state.name);
-    return adjName ? `${getAdjective(state.name)} ${state.formName}` : `${state.formName} of ${state.name}`;
-  }
-
-  /** a drawn state is called just by the name it is given, with no form such as "Duchy of" */
+  /** a state is called just by its name, with no form such as "Duchy of" */
   rename(state: State, name: string) {
     Object.assign(state, { name, fullName: name, formName: "" });
+  }
+
+  /** a state saved with a form loses it, and so does a label showing the full name, such as "Duchy of|Ardenia" */
+  dropForm(state: State) {
+    const labelText = state.label?.text?.replaceAll("|", " ").replace(/\s+/g, " ").trim();
+    if (labelText && labelText === state.fullName) delete state.label!.text;
+    this.rename(state, state.name);
   }
 
   collectTaxes() {

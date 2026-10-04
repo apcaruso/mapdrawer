@@ -182,8 +182,8 @@ States (countries) data is stored as an array of objects with strict element ord
 - `i`: `number` - state id, always equal to the array index
 - `name`: `string` - short (proper) form of the state name
 - `form`: `string` - state form type. Available types are `Monarchy`, `Republic`, `Theocracy`, `Union`, and `Anarchy`
-- `formName`: `string` - string form name, used to get state `fullName`
-- `fullName`: `string` - full state name. Combination of the proper name and state `formName`
+- `formName`: `string` - always empty: a state is not called by a form such as "Duchy of". Maps saved with one lose it on load
+- `fullName`: `string` - the name shown for the state, equal to `name`
 - `color`: `string` - state color in hex (e.g. `#45ff12`) or link to hatching pattern (e.g. `url(#hatch7)`)
 - `center`: `number` - cell id of state center (initial cell)
 - `pole`: `number[]` - state pole of inaccessibility (visual center) coordinates, see [the concept description](https://blog.mapbox.com/a-new-algorithm-for-finding-a-visual-center-of-a-polygon-7c77e6492fbc?gi=6bd4fcb9ecc1)

@@ -431,7 +431,14 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
     dall'editor degli stati o dall'etichetta toglie la forma (`States.rename`).
   - Il testo scritto nell'etichetta rinomina lo stato; "|" spezza solo le righe.
   - L'editor degli stati non ha più la colonna Form, e il dialogo del nome ha un solo campo.
-  - Le mappe disegnate prima mostrano ancora il nome con la forma, finché non si rinomina lo stato.
+  - ~~Le mappe disegnate prima mostrano ancora il nome con la forma, finché non si rinomina lo stato.~~ Superato dal
+    punto seguente.
+- **Nessuno stato è più un ducato.** La forma tornava da tre strade: le mappe salvate prima, "Regenerate states" e la
+  provincia resa indipendente.
+  - `defineStateForms` sceglie solo il governo (`form`, che decide tasse ed eserciti) e non scrive più "Duchy of…" nel
+    nome.
+  - Al caricamento uno stato salvato con la forma la perde (`States.dropForm`). Perde anche il testo dell'etichetta,
+    se era proprio il vecchio nome completo. Un testo scritto a mano resta.
 - **Piccoli difetti dalla stessa prova.**
   - Una cultura creata a mano non aveva la forma dello scudo e segnalava un errore a ogni stemma.
   - La colonna Treasury dell'editor degli stati, che appartiene all'economia nascosta, mostrava "NaN". Ora è

@@ -200,3 +200,46 @@ describe("StatesModule.generateDiplomacy", () => {
     expect(states[4].diplomacy).toEqual(["x", "x", "Neutral", "Neutral", "x"]);
   });
 });
+
+describe("StatesModule state forms", () => {
+  let StatesModule: any;
+
+  beforeEach(async () => {
+    globalThis.TIME = false;
+    await import("./states-generator");
+    StatesModule = (globalThis as any).States;
+  });
+
+  it("picks a government without putting a form in the name", () => {
+    globalThis.pack = {
+      cells: { religion: [0] },
+      religions: [{ i: 0, name: "No religion" }],
+      states: [
+        { i: 0, name: "Neutrals" },
+        { i: 1, name: "Ardenia", center: 0, type: "Generic" }
+      ]
+    } as any;
+
+    StatesModule.defineStateForms();
+
+    const state = globalThis.pack.states[1];
+    expect(state.form).toBeTruthy();
+    expect(state).toMatchObject({ name: "Ardenia", fullName: "Ardenia", formName: "" });
+  });
+
+  it("drops the form of a saved state, and the label text showing it", () => {
+    const pinned = {
+      name: "Ardenia",
+      formName: "Duchy",
+      fullName: "Duchy of Ardenia",
+      label: { text: "Duchy of|Ardenia" }
+    };
+    const custom = { name: "Belia", formName: "Kingdom", fullName: "Kingdom of Belia", label: { text: "Old Realm" } };
+
+    StatesModule.dropForm(pinned);
+    StatesModule.dropForm(custom);
+
+    expect(pinned).toEqual({ name: "Ardenia", formName: "", fullName: "Ardenia", label: {} });
+    expect(custom).toEqual({ name: "Belia", formName: "", fullName: "Belia", label: { text: "Old Realm" } });
+  });
+});

@@ -1096,7 +1096,7 @@ function recordStateChange<T>(label: string, change: () => T): T {
   return UndoHistory.record({ label, domains: STATE_DOMAINS, layers: STATE_LAYERS }, change);
 }
 
-/** the name shown for a state; maps drawn before forms were dropped keep theirs, such as "Duchy of Ardenia" */
+/** the name shown for a state */
 function getStateName(state: State): string {
   return state.fullName || state.name;
 }
