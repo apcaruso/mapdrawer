@@ -30,7 +30,7 @@ import { highlightElement, highlightOutline } from "@/renderers/overlays/highlig
 import type { Point } from "@/types/global";
 import { downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
 import { getDistinctColor } from "@/utils/colorUtils";
-import { ensureEl, findEl, formatPrice, getMixedColor, getPointer, isLand, P, ra, rand, rn, si } from "../utils";
+import { ensureEl, findEl, formatPrice, getMixedColor, getPointer, isLand, P, rand, rn, si } from "../utils";
 
 const dialogId = "statesEditor" as const;
 const LEGEND_NAME = "States"; // the legend box this editor toggles
@@ -1269,9 +1269,6 @@ function adjustProvinces(affectedProvinces: number[]): void {
     const nameByBurg = burgCell && P(0.5);
     const name = nameByBurg ? burg.name : oldProvince.name || Names.getState(Names.getCultureShort(culture), culture);
 
-    const formOptions = ["Zone", "Area", "Territory", "Province"];
-    const formName = burgCell && oldProvince.formName ? oldProvince.formName : ra(formOptions);
-
     const color = getMixedColor(states[stateId].color);
 
     const kinship = nameByBurg ? 0.8 : 0.4;
@@ -1285,8 +1282,8 @@ function adjustProvinces(affectedProvinces: number[]): void {
       center,
       burg: burgId,
       name,
-      formName,
-      fullName: `${name} ${formName}`,
+      formName: "",
+      fullName: name,
       color,
       coa
     });
@@ -1648,15 +1645,14 @@ function demoteToProvince(state: State, rulingState: State): void {
   });
 
   const burg = state.capital;
-  const formName = state.formName || "Province";
   provinces.push({
     i: provinceId,
     state: rulingState.i,
     center: burg ? burgs[burg].cell : state.center,
     burg,
     name: state.name,
-    formName,
-    fullName: `${state.name} ${formName}`,
+    formName: "",
+    fullName: state.name,
     color: getMixedColor(state.color!),
     coa: state.coa
   } as Province);
@@ -1666,7 +1662,7 @@ function demoteToProvince(state: State, rulingState: State): void {
 
 function downloadStatesCsv(): void {
   const unit = getAreaUnit("2");
-  const headers = `Id,State,Full Name,Form,Color,Capital,Culture,Type,Expansionism,Cells,Burgs,Area ${unit},Total Population,Rural Population,Urban Population`;
+  const headers = `Id,State,Color,Capital,Culture,Type,Expansionism,Cells,Burgs,Area ${unit},Total Population,Rural Population,Urban Population`;
   const data = statesTable.view().all.map(s => {
     const rural = s.rural || 0;
     const urban = s.urban || 0;
@@ -1676,9 +1672,7 @@ function downloadStatesCsv(): void {
     );
     return [
       s.i,
-      s.name,
-      s.fullName || "",
-      s.i ? s.formName : "",
+      getStateName(s),
       s.i ? s.color : "",
       s.i ? pack.burgs[s.capital].name : "",
       s.i ? pack.cultures[s.culture].name : "",

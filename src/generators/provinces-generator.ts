@@ -2,7 +2,7 @@ import Alea from "alea";
 import { max } from "d3";
 import { Emblems } from "@/generators/emblems-generator";
 import type { Emblem } from "@/types/emblems";
-import { gauss, generateSeed, getMixedColor, getPolesOfInaccessibility, P, rand, rw } from "../utils";
+import { gauss, generateSeed, getMixedColor, getPolesOfInaccessibility, P, rand } from "../utils";
 import type { Label } from "./labels-generator";
 
 declare global {
@@ -32,46 +32,6 @@ export interface Province {
 }
 
 class ProvinceModule {
-  forms: Record<string, Record<string, number>> = {
-    Monarchy: {
-      County: 22,
-      Earldom: 6,
-      Shire: 2,
-      Landgrave: 2,
-      Margrave: 2,
-      Barony: 2,
-      Captaincy: 1,
-      Seneschalty: 1
-    },
-    Republic: {
-      Province: 6,
-      Department: 2,
-      Governorate: 2,
-      District: 1,
-      Canton: 1,
-      Prefecture: 1
-    },
-    Theocracy: { Parish: 3, Deanery: 1 },
-    Union: {
-      Province: 1,
-      State: 1,
-      Canton: 1,
-      Republic: 1,
-      County: 1,
-      Council: 1
-    },
-    Anarchy: { Council: 1, Commune: 1, Community: 1, Tribe: 1 },
-    Wild: {
-      Territory: 10,
-      Land: 5,
-      Region: 2,
-      Tribe: 1,
-      Clan: 1,
-      Dependency: 1,
-      Area: 1
-    }
-  };
-
   regenerate(regenerateNames = true): void {
     this.generate(true, regenerateNames);
     this.getPoles();
@@ -121,7 +81,6 @@ class ProvinceModule {
       if (stateBurgs.length < 2) return; // at least 2 provinces are required
 
       const provincesNumber = Math.max(Math.ceil((stateBurgs.length * provincesRatio) / 100), 2);
-      const form = Object.assign({}, this.forms[s.form!]);
 
       for (let i = 0; i < provincesNumber; i++) {
         const provinceId = provinces.length;
@@ -130,9 +89,6 @@ class ProvinceModule {
         const c = stateBurgs[i].culture!;
         const nameByBurg = P(0.5);
         const name = nameByBurg ? stateBurgs[i].name! : Names.getState(Names.getCultureShort(c), c);
-        const formName = rw(form);
-        form[formName] += 10;
-        const fullName = `${name} ${formName}`;
         const color = getMixedColor(s.color!);
         const kinship = nameByBurg ? 0.8 : 0.4;
         const type = Burgs.getType(center, burg.port);
@@ -146,8 +102,8 @@ class ProvinceModule {
           center,
           burg: burg.i!,
           name,
-          formName,
-          fullName,
+          formName: "",
+          fullName: name,
           color,
           coa
         });
@@ -273,15 +229,6 @@ class ProvinceModule {
           return Names.getState(Names.getCultureShort(c), c);
         })();
 
-        const formName = (() => {
-          if (singleIsle) return "Island";
-          if (isleSubtype) return "Islands";
-          if (colony) return "Colony";
-          return rw(this.forms.Wild);
-        })();
-
-        const fullName = `${name} ${formName}`;
-
         const dominion = colony ? P(0.95) : singleIsle || isleSubtype ? P(0.7) : P(0.3);
         const kinship = dominion ? 0 : 0.4;
         const type = Burgs.getType(center, burgs[burg]?.port);
@@ -294,8 +241,8 @@ class ProvinceModule {
           center,
           burg,
           name: name!,
-          formName,
-          fullName,
+          formName: "",
+          fullName: name!,
           color,
           coa
         });
@@ -326,6 +273,11 @@ class ProvinceModule {
 
     cells.province = provinceIds;
     pack.provinces = provinces;
+  }
+
+  /** a province is called just by its name, with no form such as "Province" or "County" */
+  rename(province: Province, name: string) {
+    Object.assign(province, { name, fullName: name, formName: "" });
   }
 
   // calculate pole of inaccessibility for each province

@@ -353,6 +353,7 @@ async function parseLoadedData(data: string[], mapVersion: string | null): Promi
 
     await resolveVersionConflicts(mapVersion!, data);
     for (const state of pack.states) if (state.formName) States.dropForm(state);
+    for (const province of pack.provinces) if (province?.formName) Provinces.rename(province, province.name);
 
     const styleRecord = data[48] ? safeParseJSON(data[48]) : undefined; // data[48] should be already migrated by auto-update
     Styles.set(Styles.parse(styleRecord));

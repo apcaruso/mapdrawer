@@ -232,8 +232,8 @@ Provinces data is stored as an array of objects with strict element order. Eleme
 
 - `i`: `number` - province id, always equal to the array index
 - `name`: `string` - short (proper) form of the province name
-- `formName`: `string` - string form name, used to get province `fullName`
-- `fullName`: `string` - full state name. Combination of the proper name and province `formName`
+- `formName`: `string` - always empty: a province is not called by a form such as "County". Maps saved with one lose it on load
+- `fullName`: `string` - the name shown for the province, equal to `name`
 - `color`: `string` - province color in hex (e.g. `#45ff12`) or link to hatching pattern (e.g. `url(#hatch7)`)
 - `center`: `number` - cell id of province center (initial cell)
 - `pole`: `number[]` - province pole of inaccessibility (visual center) coordinates, see [the concept description](https://blog.mapbox.com/a-new-algorithm-for-finding-a-visual-center-of-a-polygon-7c77e6492fbc?gi=6bd4fcb9ecc1)

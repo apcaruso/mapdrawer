@@ -439,6 +439,12 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
     nome.
   - Al caricamento uno stato salvato con la forma la perde (`States.dropForm`). Perde anche il testo dell'etichetta,
     se era proprio il vecchio nome completo. Un testo scritto a mano resta.
+- **Nemmeno le province hanno una forma** ("County", "Province", "Colony"…). Una provincia si chiama col suo nome
+  (`Provinces.rename`), sia generata sia creata a mano, divisa da uno stato o fatta da uno stato unito.
+  - L'editor delle province non ha più la colonna Form. Il dialogo del nome ha un solo campo, ed è un passo di Annulla.
+  - Al caricamento le province salvate con la forma la perdono.
+  - Gli export CSV di stati e province non hanno più le colonne Full Name e Form.
+  - Codice morto tolto: gli stemmi delle province e la cavalleria delle "Horde" guardavano la forma.
 - **La costa si colora fino al bordo.** La costa disegnata è frastagliata e sporge oltre i lati delle celle fino a ~2
   unità. Il colore di stati, province, culture, religioni e biomi arrivava solo a 1,5 unità dai lati, col tratto
   `waterGap`, quindi a volte restava un pezzetto di terra scoperta.

@@ -28,7 +28,7 @@ import { removeFillPaths } from "@/renderers/isoline-fills";
 import { fog, unfog } from "@/renderers/overlays/fogging";
 import { highlightElement, highlightOutline } from "@/renderers/overlays/highlight";
 import type { Point } from "@/types/global";
-import { applyOption, downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
+import { downloadFile, getArea, getAreaUnit, getFileName, speak } from "@/utils";
 import { ensureEl, findEl, getPointer, getRandomColor, isLand, P, rand, rn, si, unique } from "../utils";
 
 const dialogId = "provincesEditor" as const;
@@ -52,14 +52,6 @@ const columns: EditorColumn<Province>[] = [
     sortType: "alpha"
   },
   { key: "emblem", width: "1.4em" },
-  {
-    key: "form",
-    label: "Form",
-    width: "7em",
-    mobileHidden: true,
-    sortBy: province => province.formName || "",
-    sortType: "alpha"
-  },
   {
     key: "capital",
     label: "Capital",
@@ -327,7 +319,6 @@ function renderProvincesPage(view: TableView<Province>): void {
       <fill-box data-col="color" fill="${p.color}"></fill-box>
       <input data-col="name" data-tip="Province name. Click to change" class="name pointer" value="${p.name}" readonly />
       <svg data-col="emblem" data-tip="Click to show and edit province emblem" class="coaIcon pointer" viewBox="0 0 200 200"><use href="#provinceCOA${p.i}"></use></svg>
-      <input data-col="form" data-tip="Province form name. Click to change" class="name pointer" value="${p.formName}" readonly />
       <div data-col="capital">
         <span data-tip="Province capital. Click to zoom into view" class="icon-star-empty pointer ${p.burg ? "" : "placeholder"}"></span>
         <select data-tip="Province capital. Click to select from burgs within the state. No capital means the province is governed from the state capital" class="cultureBase ${p.burgs!.length ? "" : "placeholder"}">${p.burgs!.length ? getCapitalOptions(p.burgs!, p.burg) : ""}</select>
@@ -683,15 +674,11 @@ function removeProvince(p: number): void {
   });
 }
 
-function editProvinceName(province: number): void {
+function editProvinceName(provinceId: number): void {
   renderNameEditor();
-  const p = pack.provinces[province];
-  ensureEl("provinceNameEditor").dataset.province = String(province);
-  ensureEl<HTMLInputElement>("provinceNameEditorShort").value = p.name;
-  applyOption(ensureEl("provinceNameEditorSelectForm"), p.formName);
-  ensureEl<HTMLInputElement>("provinceNameEditorFull").value = p.fullName;
-
-  const cultureId = pack.cells.culture[p.center];
+  const input = ensureEl<HTMLInputElement>("provinceNameEditorName");
+  input.value = pack.provinces[provinceId].name;
+  const cultureId = pack.cells.culture[pack.provinces[provinceId].center];
   ensureEl("provinceCultureDisplay").innerText = pack.cultures[cultureId].name;
 
   $("#provinceNameEditor").dialog({
@@ -699,7 +686,9 @@ function editProvinceName(province: number): void {
     title: "Change province name",
     buttons: {
       Apply: function (this: HTMLElement) {
-        applyNameChange(p);
+        const name = input.value.trim();
+        if (name && name !== pack.provinces[provinceId].name)
+          UndoHistory.record({ label: "Rename province", ...PROVINCE_HISTORY }, () => renameProvince(provinceId, name));
         $(this).dialog("close");
       },
       Cancel: function (this: HTMLElement) {
@@ -709,96 +698,26 @@ function editProvinceName(province: number): void {
     position: { my: "center", at: "center", of: "svg" },
     close: closeProvinceNameEditor
   });
+
+  ensureEl("provinceNameEditorSpeak").addEventListener("click", () => speak(input.value));
+  ensureEl("provinceNameEditorCulture").addEventListener("click", () => {
+    input.value = Names.getState(Names.getCultureShort(cultureId), cultureId);
+  });
+  ensureEl("provinceNameEditorRandom").addEventListener("click", () => {
+    const base = rand(Names.nameBases.length - 1);
+    input.value = Names.getState(Names.getBase(base), undefined as unknown as number, base);
+  });
 }
 
 function renderNameEditor(): void {
   destroyDialog("provinceNameEditor");
-  const nameEditorHtml = /* html */ `<div id="provinceNameEditor" class="dialog" data-province="0">
+  const nameEditorHtml = /* html */ `<div id="provinceNameEditor" class="dialog">
       <div>
-        <div data-tip="Province short name" class="label">Short name:</div>
-        <input
-          id="provinceNameEditorShort"
-          data-tip="Type to change the short name"
-          autocorrect="off"
-          spellcheck="false"
-          style="width: 11em"
-        />
-        <span id="provinceNameEditorShortSpeak" data-tip="Speak the name. You can change voice and language in options" class="speaker">🔊</span>
-        <span
-          id="provinceNameEditorShortCulture"
-          data-tip="Generate culture-specific name for the province"
-          class="icon-book pointer"
-        ></span>
-        <span id="provinceNameEditorShortRandom" data-tip="Generate random name" class="icon-globe pointer"></span>
-      </div>
-      <div data-tip="Select form name">
-        <div data-tip="Province form name" class="label">Form name:</div>
-        <select id="provinceNameEditorSelectForm" style="display: inline-block; width: 11em; height: 1.645em">
-          <option value="">blank</option>
-          <option value="Area">Area</option>
-          <option value="Autonomy">Autonomy</option>
-          <option value="Barony">Barony</option>
-          <option value="Canton">Canton</option>
-          <option value="Captaincy">Captaincy</option>
-          <option value="Chiefdom">Chiefdom</option>
-          <option value="Clan">Clan</option>
-          <option value="Colony">Colony</option>
-          <option value="Council">Council</option>
-          <option value="County">County</option>
-          <option value="Deanery">Deanery</option>
-          <option value="Department">Department</option>
-          <option value="Dependency">Dependency</option>
-          <option value="Diaconate">Diaconate</option>
-          <option value="District">District</option>
-          <option value="Earldom">Earldom</option>
-          <option value="Governorate">Governorate</option>
-          <option value="Island">Island</option>
-          <option value="Islands">Islands</option>
-          <option value="Land">Land</option>
-          <option value="Landgrave">Landgrave</option>
-          <option value="Mandate">Mandate</option>
-          <option value="Margrave">Margrave</option>
-          <option value="Municipality">Municipality</option>
-          <option value="Occupation zone">Occupation zone</option>
-          <option value="Parish">Parish</option>
-          <option value="Prefecture">Prefecture</option>
-          <option value="Province">Province</option>
-          <option value="Region">Region</option>
-          <option value="Republic">Republic</option>
-          <option value="Reservation">Reservation</option>
-          <option value="Seneschalty">Seneschalty</option>
-          <option value="Shire">Shire</option>
-          <option value="State">State</option>
-          <option value="Territory">Territory</option>
-          <option value="Tribe">Tribe</option>
-        </select>
-        <input
-          id="provinceNameEditorCustomForm"
-          placeholder="type form name"
-          data-tip="Create custom province form name"
-          style="display: none; width: 11em"
-        />
-        <span
-          id="provinceNameEditorAddForm"
-          data-tip="Click to add custom province form name to the list"
-          class="icon-plus pointer"
-        ></span>
-      </div>
-      <div>
-        <div data-tip="Province full name" class="label">Full name:</div>
-        <input
-          id="provinceNameEditorFull"
-          data-tip="Type to change the full name"
-          autocorrect="off"
-          spellcheck="false"
-          style="width: 11em"
-        />
-        <span id="provinceNameEditorFullSpeak" data-tip="Speak the name. You can change voice and language in options" class="speaker">🔊</span>
-        <span
-          id="provinceNameEditorFullRegenerate"
-          data-tip="Click to re-generate full name"
-          class="icon-arrows-cw pointer"
-        ></span>
+        <div data-tip="The name of the province, written on the map as it is typed" class="label">Name:</div>
+        <input id="provinceNameEditorName" autocorrect="off" spellcheck="false" style="width: 14em" />
+        <span id="provinceNameEditorSpeak" data-tip="Speak the name. You can change voice and language in options" class="speaker">🔊</span>
+        <span id="provinceNameEditorCulture" data-tip="Generate culture-specific name" class="icon-book pointer"></span>
+        <span id="provinceNameEditorRandom" data-tip="Generate random name" class="icon-globe pointer"></span>
       </div>
       <div
         id="provinceCultureName"
@@ -809,17 +728,6 @@ function renderNameEditor(): void {
       </div>
     </div>`;
   ensureEl("dialogs").insertAdjacentHTML("beforeend", nameEditorHtml);
-
-  ensureEl("provinceNameEditorShortCulture").addEventListener("click", regenerateShortNameCulture);
-  ensureEl("provinceNameEditorShortRandom").addEventListener("click", regenerateShortNameRandom);
-  ensureEl("provinceNameEditorShortSpeak").addEventListener("click", () =>
-    speak(ensureEl<HTMLInputElement>("provinceNameEditorShort").value)
-  );
-  ensureEl("provinceNameEditorAddForm").addEventListener("click", addCustomForm);
-  ensureEl("provinceNameEditorFullRegenerate").addEventListener("click", regenerateFullName);
-  ensureEl("provinceNameEditorFullSpeak").addEventListener("click", () =>
-    speak(ensureEl<HTMLInputElement>("provinceNameEditorFull").value)
-  );
 }
 
 function closeProvinceNameEditor(): void {
@@ -827,47 +735,10 @@ function closeProvinceNameEditor(): void {
   ensureEl("provinceNameEditor").remove();
 }
 
-function regenerateShortNameCulture(): void {
-  const province = +ensureEl("provinceNameEditor").dataset.province!;
-  const culture = pack.cells.culture[pack.provinces[province].center];
-  const name = Names.getState(Names.getCultureShort(culture), culture);
-  ensureEl<HTMLInputElement>("provinceNameEditorShort").value = name;
-}
-
-function regenerateShortNameRandom(): void {
-  const base = rand(Names.nameBases.length - 1);
-  const name = Names.getState(Names.getBase(base), undefined as unknown as number, base);
-  ensureEl<HTMLInputElement>("provinceNameEditorShort").value = name;
-}
-
-function addCustomForm(): void {
-  const customForm = ensureEl<HTMLInputElement>("provinceNameEditorCustomForm");
-  const selectForm = ensureEl("provinceNameEditorSelectForm");
-  const value = customForm.value;
-  const displayed = customForm.style.display === "inline-block";
-  customForm.style.display = displayed ? "none" : "inline-block";
-  selectForm.style.display = displayed ? "inline-block" : "none";
-  if (displayed) applyOption(selectForm, value);
-}
-
-function regenerateFullName(): void {
-  const short = ensureEl<HTMLInputElement>("provinceNameEditorShort").value;
-  const form = ensureEl<HTMLSelectElement>("provinceNameEditorSelectForm").value;
-  const getFullName = (): string => {
-    if (!form) return short;
-    if (!short && form) return `The ${form}`;
-    return `${short} ${form}`;
-  };
-  ensureEl<HTMLInputElement>("provinceNameEditorFull").value = getFullName();
-}
-
-function applyNameChange(p: Province): void {
-  p.name = ensureEl<HTMLInputElement>("provinceNameEditorShort").value;
-  p.formName = ensureEl<HTMLSelectElement>("provinceNameEditorSelectForm").value;
-  p.fullName = ensureEl<HTMLInputElement>("provinceNameEditorFull").value;
-  Layers.draw("provinces");
+function renameProvince(provinceId: number, name: string): void {
+  Provinces.rename(pack.provinces[provinceId], name);
   Layers.draw("labels");
-  refreshProvincesEditor();
+  if (document.getElementById(dialogId)) refreshProvincesEditor();
 }
 
 function changeCapital(p: number, line: HTMLElement, value: string): void {
@@ -1123,14 +994,7 @@ function paint(onClose: () => void): Promise<boolean> {
         return provinceId ? paintItem(pack.provinces[provinceId]) : undefined;
       }
     },
-    rename: (provinceId, name) =>
-      record("Rename province", () => {
-        const province = pack.provinces[provinceId];
-        province.name = name;
-        province.fullName = `${name} ${province.formName}`;
-        Layers.draw("labels");
-        if (document.getElementById(dialogId)) refreshProvincesEditor();
-      }),
+    rename: (provinceId, name) => record("Rename province", () => renameProvince(provinceId, name)),
     recolor: {
       history: { domains: ["provinces"], layers: ["provinces"] },
       apply: (provinceId, color) => {
@@ -1236,8 +1100,6 @@ function createProvinceAt(point: Point): number | undefined {
   const burg = cells.burg[center];
   const c = cells.culture[center];
   const name = burg ? pack.burgs[burg].name : Names.getState(Names.getCultureShort(c), c);
-  const formName = oldProvince ? provinces[oldProvince].formName : "Province";
-  const fullName = `${name} ${formName}`;
   const stateColor = pack.states[state].color!;
   const rndColor = getRandomColor();
   const color = stateColor[0] === "#" ? d3Color(interpolate(stateColor, rndColor)(0.2))!.hex() : rndColor;
@@ -1249,7 +1111,7 @@ function createProvinceAt(point: Point): number | undefined {
   const type = Burgs.getType(center, port);
   const coa = Emblems.generate(parent, kinship, +P(0.1), type);
   coa.shield = Emblems.getShield(c, state);
-  provinces.push({ i: province, state, center, burg, name, formName, fullName, color, coa } as Province);
+  provinces.push({ i: province, state, center, burg, name, formName: "", fullName: name, color, coa } as Province);
   redrawEmblem("province", province);
 
   cells.province[center] = province;
@@ -1297,11 +1159,11 @@ function recolorProvinces(): void {
 function downloadProvincesData(): void {
   const unit =
     options.map.units.area.unit === "square" ? `${options.map.units.distance.unit}2` : options.map.units.area.unit;
-  let data = `Id,Province,Full Name,Form,State,Color,Capital,Area ${unit},Total Population,Rural Population,Urban Population,Burgs\n`; // headers
+  let data = `Id,Province,State,Color,Capital,Area ${unit},Total Population,Rural Population,Urban Population,Burgs\n`; // headers
 
   for (const province of getProvincesData()) {
     const capital = province.burg ? pack.burgs[province.burg].name : "";
-    data += `${province.i},${province.name},${province.fullName},${province.formName},${pack.states[province.state].name},${province.color},${capital},${getProvinceArea(province)},${getProvincePopulation(province)},${Math.round(province.rural! * options.map.units.population.scale)},${Math.round(province.urban! * options.map.units.population.scale * options.map.units.population.urbanization.rate)},${province.burgs!.length}\n`;
+    data += `${province.i},${province.name},${pack.states[province.state].name},${province.color},${capital},${getProvinceArea(province)},${getProvincePopulation(province)},${Math.round(province.rural! * options.map.units.population.scale)},${Math.round(province.urban! * options.map.units.population.scale * options.map.units.population.urbanization.rate)},${province.burgs!.length}\n`;
   }
 
   const name = `${getFileName("Provinces")}.csv`;

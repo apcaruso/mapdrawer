@@ -105,7 +105,6 @@ test.describe("States", () => {
         .map(s => ({
           i: s.i,
           name: s.name,
-          formName: s.formName,
           coa: JSON.stringify(s.coa),
           provinces: pack.provinces.filter(p => p.i && !p.removed && p.state === s.i).map(p => p.i),
           cells: pack.cells.state.filter(id => id === s.i).length
@@ -144,8 +143,8 @@ test.describe("States", () => {
     );
     expect(result).toEqual({
       stateRemoved: true,
-      formName: child.formName,
-      fullName: `${child.name} ${child.formName}`,
+      formName: "",
+      fullName: child.name,
       coa: child.coa,
       color: expect.stringMatching(/^#[0-9a-f]{6}$/),
       provinceCells: child.cells,

@@ -457,15 +457,7 @@ export class EmblemsGenerator {
     pack.provinces.forEach(province => {
       if (!province.i || province.removed) return;
       const parent = province.burg ? pack.burgs[province.burg] : pack.states[province.state];
-      let dominion = false;
-      if (!province.burg) {
-        dominion = P(0.2);
-        if (province.formName === "Colony") dominion = P(0.95);
-        else if (province.formName === "Island") dominion = P(0.6);
-        else if (province.formName === "Islands") dominion = P(0.5);
-        else if (province.formName === "Territory") dominion = P(0.4);
-        else if (province.formName === "Land") dominion = P(0.3);
-      }
+      const dominion = !province.burg && P(0.2);
 
       const nameByBurg = province.burg && province.name.slice(0, 3) === (parent.name ?? "").slice(0, 3);
       const kinship = dominion ? 0 : nameByBurg ? 0.8 : 0.4;
