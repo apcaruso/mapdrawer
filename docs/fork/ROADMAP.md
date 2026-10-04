@@ -439,6 +439,18 @@ celle d'acqua con stato, fiumi e strade solo sul loro terreno.
     nome.
   - Al caricamento uno stato salvato con la forma la perde (`States.dropForm`). Perde anche il testo dell'etichetta,
     se era proprio il vecchio nome completo. Un testo scritto a mano resta.
+- **La costa si colora fino al bordo.** La costa disegnata è frastagliata e sporge oltre i lati delle celle fino a ~2
+  unità. Il colore di stati, province, culture, religioni e biomi arrivava solo a 1,5 unità dai lati, col tratto
+  `waterGap`, quindi a volte restava un pezzetto di terra scoperta.
+  - Sotto le campiture ora c'è la **riva** (`getShores`, path `*-shore`): le celle d'acqua lungo la costa, tagliate a
+    spicchi dal centro. Ogni spicchio prende il colore della terra al di là del suo lato. La maschera della terra lo
+    taglia sulla costa vera, quindi non esce in mare e in uno stretto non invade la sponda di fronte.
+  - Sonda sui punti peggiori di una mappa generata: 253 pixel di terra scoperta prima, 0 dopo. Sui confini tra stati
+    lungo la costa l'immagine resta identica.
+  - Costo: ~3 ms in più per ridisegnare un layer su 6k celle (~1000 celle d'acqua costiere). Spostamento e zoom sono
+    invariati, 17–18 ms per aggiornamento.
+  - Ricolorare o rimuovere un'area sul posto (diplomazia, culture, religioni, province) ora tocca anche la riva e il
+    tratto (`recolorFillPaths`, `removeFillPaths`). Prima il tratto di culture e religioni restava del colore vecchio.
 - **Piccoli difetti dalla stessa prova.**
   - Una cultura creata a mano non aveva la forma dello scudo e segnalava un errore a ogni stemma.
   - La colonna Treasury dell'editor degli stati, che appartiene all'economia nascosta, mostrava "NaN". Ora è

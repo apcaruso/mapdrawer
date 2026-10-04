@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point } from "../generators/voronoi";
 import { getLabelPath } from "../renderers/labels/label-markup";
-import { meander, parsePathPoints } from "./pathUtils";
+import { getShores, meander, parsePathPoints } from "./pathUtils";
 
 describe("parsePathPoints", () => {
   it("restores knots from a natural curve path", () => {
@@ -194,5 +194,52 @@ describe("addMeandering", () => {
       expect(actual[0]).toBe(overrideAnchors[k][0]);
       expect(actual[1]).toBe(overrideAnchors[k][1]);
     }
+  });
+});
+
+describe("getShores", () => {
+  // water cell 0 is a square: land cell 1 across its bottom edge, land cell 2 across its right edge, water elsewhere
+  const graph = {
+    cells: {
+      i: [0, 1, 2],
+      h: [0, 50, 50, 0, 0],
+      v: [[0, 1, 2, 3]],
+      p: [[5, 5]] as Point[],
+      c: [[1, 2, 3, 4]],
+      f: [],
+      b: []
+    },
+    vertices: {
+      p: [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+        [0, 10]
+      ] as Point[],
+      c: [
+        [0, 1, 4],
+        [0, 1, 2],
+        [0, 2, 3],
+        [0, 3, 4]
+      ],
+      v: []
+    }
+  };
+
+  it("gives each slice of a coastal water cell to the closest land across its edges", () => {
+    const types = [0, 1, 2];
+    expect(getShores(graph, cellId => types[cellId])).toEqual({
+      1: "M5,5L0,10L0,0L10,0Z",
+      2: "M5,5L10,0L10,10L0,10Z"
+    });
+  });
+
+  it("gives a water cell with one type of land around it whole", () => {
+    expect(getShores(graph, cellId => (cellId ? 1 : 0))).toEqual({ 1: "M0,0L10,0L10,10L0,10Z" });
+  });
+
+  it("leaves the slices of land without a type empty", () => {
+    const types = [0, 1, 0];
+    expect(getShores(graph, cellId => types[cellId])).toEqual({ 1: "M5,5L0,10L0,0L10,0Z" });
   });
 });

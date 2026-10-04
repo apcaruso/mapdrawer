@@ -24,6 +24,7 @@ import type { Province } from "@/generators/provinces-generator";
 import { RegionGrowth } from "@/generators/region-growth";
 import { redrawEmblem, redrawEmblems, removeEmblem } from "@/renderers/draw-emblems";
 import { EmblemRenderer } from "@/renderers/emblems/renderer";
+import { removeFillPaths } from "@/renderers/isoline-fills";
 import { fog, unfog } from "@/renderers/overlays/fogging";
 import { highlightElement, highlightOutline } from "@/renderers/overlays/highlight";
 import type { Point } from "@/types/global";
@@ -669,9 +670,7 @@ function removeProvince(p: number): void {
         removeEmblem("province", p);
         pack.provinces[p] = { i: p, removed: true } as Province;
 
-        const g = select<SVGGElement, unknown>("#provs").select("#provincesBody");
-        g.select(`#province${p}`).remove();
-        g.select(`#province-gap${p}`).remove();
+        removeFillPaths(document.getElementById("provincesBody"), "province", p);
         Layers.draw("borders");
         Layers.draw("labels");
         refreshProvincesEditor();

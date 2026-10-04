@@ -15,6 +15,7 @@ import { clearMainTip, tip } from "@/components/tooltips";
 import { applyDefaultViewboxEvents } from "@/components/viewbox-events";
 import type { State } from "@/generators/states-generator";
 import { EmblemRenderer } from "@/renderers/emblems/renderer";
+import { recolorFillPaths } from "@/renderers/isoline-fills";
 import { downloadFile, getFileName } from "@/utils";
 import { ensureEl, findEl, getAdjective, getPointer } from "../utils";
 
@@ -286,21 +287,16 @@ function showStateRelations(): void {
   if (!sel) return;
   Layers.show("states");
 
-  select<SVGGElement, unknown>("#statesBody")
-    .selectAll<SVGPathElement, unknown>("path")
-    .each(function () {
-      if (this.id.slice(0, 9) === "state-gap") return; // exclude state gap element
-      const id = +this.id.slice(5); // state id
+  for (const state of pack.states) {
+    if (!state.i || state.removed) continue;
+    const relation = state.diplomacy?.[sel] ?? "x";
+    const color = relations[relation]?.color || "#4682b4";
 
-      const relation = pack.states[id].diplomacy?.[sel] ?? "x";
-      const color = relations[relation]?.color || "#4682b4";
-
-      this.setAttribute("fill", color);
-      select<SVGGElement, unknown>("#statesBody").select(`#state-gap${id}`).attr("stroke", color);
-      select<SVGGElement, unknown>("#statesHalo")
-        .select(`#state-border${id}`)
-        .attr("stroke", d3Color(color)!.darker().hex());
-    });
+    recolorFillPaths(document.getElementById("statesBody"), "state", state.i, color);
+    select<SVGGElement, unknown>("#statesHalo")
+      .select(`#state-border${state.i}`)
+      .attr("stroke", d3Color(color)!.darker().hex());
+  }
 }
 
 function selectStateOnMapClick(this: SVGElement, event: MouseEvent): void {

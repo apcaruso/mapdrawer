@@ -14,6 +14,15 @@ describe("buildFillPaths", () => {
     );
   });
 
+  test("draws the shores of all areas under every fill", () => {
+    expect(build({ 1: { fill: "M1,1Z", shore: "M0,0Z" }, 2: { fill: "M5,5Z", shore: "M6,6Z" } })).toBe(
+      '<path d="M0,0Z" fill="#abcdef" id="biome-shore1" />' +
+        '<path d="M6,6Z" fill="url(#hatch1)" id="biome-shore2" />' +
+        '<path d="M1,1Z" fill="#abcdef" id="biome1" />' +
+        '<path d="M5,5Z" fill="url(#hatch1)" id="biome2" />'
+    );
+  });
+
   test("does not emit paths for an empty isoline", () => {
     expect(build({ 1: {} })).toBe("");
   });

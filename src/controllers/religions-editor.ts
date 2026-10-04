@@ -20,6 +20,7 @@ import { Controllers } from "@/controllers";
 import { RegionGrowth } from "@/generators/region-growth";
 import type { Religion } from "@/generators/religions-generator";
 import { clearLegend, drawLegend, hasLegend } from "@/renderers/draw-legend";
+import { recolorFillPaths, removeFillPaths } from "@/renderers/isoline-fills";
 import { highlightElement } from "@/renderers/overlays/highlight";
 import type { Point } from "@/types/global";
 import { downloadFile, getArea, getAreaUnit, getFileName } from "@/utils";
@@ -512,7 +513,7 @@ function religionChangeColor(this: HTMLElement): void {
   const callback = (newFill: string) => {
     (this as any).fill = newFill;
     pack.religions[religionId].color = newFill;
-    select("#relig").select(`#religion${religionId}`).attr("fill", newFill);
+    recolorFillPaths(document.getElementById("relig"), "religion", religionId, newFill);
     select("#debug").select(`#religionsCenter${religionId}`).attr("fill", newFill);
   };
 
@@ -685,8 +686,7 @@ function religionRemovePrompt(this: HTMLElement): void {
 }
 
 function removeReligion(religionId: number): void {
-  select("#relig").select(`#religion${religionId}`).remove();
-  select("#relig").select(`#religion-gap${religionId}`).remove();
+  removeFillPaths(document.getElementById("relig"), "religion", religionId);
   select("#debug").select(`#religionsCenter${religionId}`).remove();
 
   pack.cells.religion.forEach((r: number, i: number) => {

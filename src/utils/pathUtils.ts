@@ -80,6 +80,7 @@ type IsolineGraph = {
     f: ArrayLike<number>;
     h: ArrayLike<number>;
     b: ArrayLike<number | boolean>;
+    p?: Point[]; // needed for shores only
   };
   vertices: Vertices;
   features: { type: string; shoreline?: number[] }[];
@@ -94,6 +95,7 @@ type IsolineGraph = {
  * @param {boolean} [options.fill=false] - Whether to generate fill paths for each type.
  * @param {boolean} [options.halo=false] - Whether to generate halo paths for each type.
  * @param {boolean} [options.waterGap=false] - Whether to generate water gap paths for each type.
+ * @param {boolean} [options.shore=false] - Whether to generate shore paths for each type.
  * @returns {object} An object containing isolines for each type based on the specified options.
  */
 export const getIsolines = (
@@ -104,6 +106,7 @@ export const getIsolines = (
     fill?: boolean;
     halo?: boolean;
     waterGap?: boolean;
+    shore?: boolean;
   } = {
     polygons: false,
     fill: false,
@@ -151,6 +154,12 @@ export const getIsolines = (
     addIsolineTo(type, vertices, vertexChain, isolines, options);
   }
 
+  if (options.shore) {
+    for (const [type, shore] of Object.entries(getShores({ cells, vertices }, getType))) {
+      if (!isolines[type]) isolines[type] = {};
+      isolines[type].shore = shore;
+    }
+  }
   return isolines;
 
   function addIsolineTo(
@@ -191,7 +200,66 @@ export const getIsolines = (
   }
 };
 
-type Isolines = Record<string, { polygons?: Point[][]; fill?: string; halo?: string; waterGap?: string }>;
+type Isolines = Record<
+  string,
+  { polygons?: Point[][]; fill?: string; halo?: string; waterGap?: string; shore?: string }
+>;
+
+/**
+ * Shores: the water cells along the coast, cut into one slice per edge around the cell center. A slice goes to the
+ * type of the land across its edge, a slice facing water to the closest land slice. Drawn under the land mask, they
+ * fill the land the drawn coastline adds beyond the cell edges, which a water gap stroke is too thin to cover
+ */
+export const getShores = (
+  { cells, vertices }: Pick<IsolineGraph, "cells" | "vertices">,
+  getType: (cellId: number) => string | number | null
+): Record<string, string> => {
+  const shores: Record<string, string> = {};
+  const isLand = (cellId: number) => cells.h[cellId] >= 20;
+  const toText = ([x, y]: Point) => `${rn(x, 2)},${rn(y, 2)}`;
+  const vertexTexts: string[] = []; // a vertex is shared by several slices: format it once
+  const vertexText = (vertex: number) => (vertexTexts[vertex] ??= toText(vertices.p[vertex]));
+  const addShore = (type: string | number | null, points: string[]) => {
+    if (type) shores[type] = `${shores[type] || ""}M${points.join("L")}Z`;
+  };
+
+  for (const cellId of cells.i) {
+    if (isLand(cellId) || !cells.c[cellId].some(isLand)) continue;
+
+    const cellVertices = cells.v[cellId];
+    const count = cellVertices.length;
+    const across = cellVertices.map((vertex, index) => {
+      const next = cellVertices[(index + 1) % count];
+      return vertices.c[vertex].find(neighbor => neighbor !== cellId && vertices.c[next].includes(neighbor));
+    });
+    const landSlices = across.flatMap((neighbor, index) => (neighbor !== undefined && isLand(neighbor) ? [index] : []));
+    if (!landSlices.length) continue;
+
+    const landTypes = landSlices.map(slice => getType(across[slice]!));
+    if (landTypes.every(type => type === landTypes[0])) {
+      addShore(landTypes[0], cellVertices.map(vertexText)); // one type all around: the whole cell
+      continue;
+    }
+
+    const distance = (a: number, b: number) => Math.min(Math.abs(a - b), count - Math.abs(a - b));
+    const closestLand = (index: number) =>
+      landSlices.reduce((best, slice) => (distance(index, slice) < distance(index, best) ? slice : best));
+    const types = across.map((_, index) => getType(across[closestLand(index)]!));
+
+    // a run of slices of one type is one fan
+    const start = types.findIndex((type, index) => type !== types[(index + count - 1) % count]);
+    for (let first = start; first < start + count; ) {
+      let last = first + 1;
+      while (last < start + count && types[last % count] === types[first % count]) last++;
+      const fan = [toText(cells.p![cellId])];
+      for (let index = first; index <= last; index++) fan.push(vertexText(cellVertices[index % count]));
+      addShore(types[first % count], fan);
+      first = last;
+    }
+  }
+
+  return shores;
+};
 
 /**
  * Generates SVG path data for the border of a shape defined by a chain of vertices.

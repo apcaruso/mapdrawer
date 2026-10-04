@@ -23,6 +23,7 @@ import { Emblems } from "@/generators/emblems-generator";
 import { RegionGrowth } from "@/generators/region-growth";
 import { clearLegend, drawLegend, hasLegend } from "@/renderers/draw-legend";
 import { EmblemRenderer } from "@/renderers/emblems/renderer";
+import { recolorFillPaths, removeFillPaths } from "@/renderers/isoline-fills";
 import { highlightElement } from "@/renderers/overlays/highlight";
 import type { Emblem } from "@/types/emblems";
 import type { Point } from "@/types/global";
@@ -499,7 +500,7 @@ function cultureChangeColor(this: FillBoxElement): void {
   const callback = (newFill: string) => {
     this.fill = newFill;
     pack.cultures[cultureId].color = newFill;
-    select("#cults").select(`#culture${cultureId}`).attr("fill", newFill);
+    recolorFillPaths(document.getElementById("cults"), "culture", cultureId, newFill);
     select("#debug").select(`#cultureCenter${cultureId}`).attr("fill", newFill);
   };
 
@@ -718,7 +719,7 @@ function cultureRegenerateBurgs(this: HTMLElement): void {
 }
 
 function removeCulture(cultureId: number): void {
-  select("#cults").select(`#culture${cultureId}`).remove();
+  removeFillPaths(document.getElementById("cults"), "culture", cultureId);
   select("#debug").select(`#cultureCenter${cultureId}`).remove();
 
   const { burgs, states, cells, cultures } = pack as any;

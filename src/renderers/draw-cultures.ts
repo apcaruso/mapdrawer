@@ -5,7 +5,7 @@ export function drawCultures(): void {
   TIME && console.time("drawCultures");
   const { cells, cultures } = pack;
 
-  const isolines = getIsolines(pack, cellId => cells.culture[cellId], { fill: true, waterGap: true });
+  const isolines = getIsolines(pack, cellId => cells.culture[cellId], { fill: true, waterGap: true, shore: true });
   ensureEl("cults").innerHTML = buildFillPaths("culture", isolines, index => cultures[index].color!);
 
   TIME && console.timeEnd("drawCultures");
